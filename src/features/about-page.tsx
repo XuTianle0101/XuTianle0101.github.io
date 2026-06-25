@@ -28,7 +28,7 @@ export function AboutPage({ locale }: { locale: Locale }) {
         </div>
 
         <div className="grid gap-6">
-          <div className="border border-line bg-white p-6 dark:border-white/10 dark:bg-white/[0.04]">
+          <div className="rounded-[1.75rem] border border-line bg-white/92 p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.04] sm:p-6 md:rounded-none">
             <h2 className="font-serif text-3xl">{locale === 'zh' ? '技能栈' : 'Skills'}</h2>
             <div className="mt-6 space-y-5">
               {profile.skillGroups.map((group) => (
@@ -40,7 +40,7 @@ export function AboutPage({ locale }: { locale: Locale }) {
             </div>
           </div>
 
-          <div className="border border-line bg-white p-6 dark:border-white/10 dark:bg-white/[0.04]">
+          <div className="rounded-[1.75rem] border border-line bg-white/92 p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.04] sm:p-6 md:rounded-none">
             <h2 className="font-serif text-3xl">{locale === 'zh' ? '兴趣爱好' : 'Interests'}</h2>
             <div className="mt-6 grid gap-4">
               {interests.map((interest) => (

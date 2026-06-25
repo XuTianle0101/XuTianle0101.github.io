@@ -30,7 +30,7 @@ export function BlogListPage({ locale, rootMode = false }: { locale: Locale; roo
             className="block border-t border-line py-8 transition hover:text-coral dark:border-white/10"
           >
             <p className="text-sm text-ink/55 dark:text-white/55">{formatDate(post.date, locale)}</p>
-            <h2 className="mt-3 font-serif text-4xl leading-tight">{text(post.title, locale)}</h2>
+            <h2 className="mt-3 font-serif text-3xl leading-tight sm:text-4xl">{text(post.title, locale)}</h2>
             <p className="mt-4 leading-7 text-ink/68 dark:text-white/68">{text(post.description, locale)}</p>
             <div className="mt-4 flex flex-wrap gap-2">
               {post.tags.map((tag) => (

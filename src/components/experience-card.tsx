@@ -24,8 +24,8 @@ const kindLabels = {
 
 export function ExperienceCard({ item, locale, compact = false }: ExperienceCardProps) {
   return (
-    <article className="group overflow-hidden border border-line bg-white transition hover:-translate-y-1 hover:shadow-soft dark:border-white/10 dark:bg-white/[0.04]">
-      <div className="relative aspect-[16/10] overflow-hidden bg-line">
+    <article className="group overflow-hidden rounded-[1.75rem] border border-line bg-white/92 shadow-sm transition hover:-translate-y-1 hover:shadow-soft dark:border-white/10 dark:bg-white/[0.04] md:rounded-none">
+      <div className="relative aspect-[4/3] overflow-hidden bg-gradient-to-br from-coral/20 via-line to-teal/20 sm:aspect-[16/10]">
         <Image
           src={item.image}
           alt=""
@@ -34,13 +34,13 @@ export function ExperienceCard({ item, locale, compact = false }: ExperienceCard
           className="object-cover transition duration-500 group-hover:scale-105"
         />
       </div>
-      <div className="p-6">
+      <div className="p-5 sm:p-6">
         <div className="mb-4 flex flex-wrap items-center gap-3 text-xs uppercase tracking-[0.16em] text-ink/50 dark:text-white/50">
           <span>{kindLabels[locale][item.kind]}</span>
           <span>{item.period}</span>
         </div>
         <p className="text-sm font-medium text-teal">{text(item.organization, locale)}</p>
-        <h3 className="mt-2 font-serif text-2xl leading-tight">{text(item.title, locale)}</h3>
+        <h3 className="mt-2 font-serif text-[1.7rem] leading-tight sm:text-2xl">{text(item.title, locale)}</h3>
         <p className="mt-4 leading-7 text-ink/68 dark:text-white/68">{text(item.summary, locale)}</p>
         {!compact ? (
           <ul className="mt-5 space-y-3 text-sm leading-6 text-ink/70 dark:text-white/70">

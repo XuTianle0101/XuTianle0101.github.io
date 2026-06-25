@@ -20,14 +20,24 @@ const navItems = [
   ['contact', '/contact'],
 ] as const;
 
+const mobileNavItems = [['home', '/'], ...navItems] as const;
+
 export function SiteShell({ locale, children, rootMode = false, currentPath = '/' }: SiteShellProps) {
   const copy = dictionary[locale];
   const otherLocale = alternateLocale(locale);
   const switchPath = localizedPath(otherLocale, currentPath);
+  const normalizedCurrentPath = currentPath === '/' ? '/' : currentPath.replace(/\/$/, '');
+  const isActive = (href: string) => {
+    if (href === '/') {
+      return normalizedCurrentPath === '/';
+    }
+
+    return normalizedCurrentPath === href || normalizedCurrentPath.startsWith(`${href}/`);
+  };
 
   return (
-    <div className="min-h-screen bg-paper text-ink dark:bg-[#151617] dark:text-[#f4f2ea]">
-      <header className="sticky top-0 z-50 border-b border-line/80 bg-paper/88 backdrop-blur dark:border-white/10 dark:bg-[#151617]/88">
+    <div className="min-h-screen overflow-x-hidden bg-paper text-ink [background:radial-gradient(circle_at_top_left,rgba(214,95,69,0.16),transparent_28rem),radial-gradient(circle_at_90%_8rem,rgba(22,127,122,0.14),transparent_24rem),#f7f7f2] dark:bg-[#151617] dark:text-[#f4f2ea] dark:[background:radial-gradient(circle_at_top_left,rgba(214,95,69,0.14),transparent_28rem),radial-gradient(circle_at_90%_8rem,rgba(22,127,122,0.12),transparent_24rem),#151617]">
+      <header className="sticky top-0 z-50 border-b border-line/80 bg-paper/90 backdrop-blur-xl dark:border-white/10 dark:bg-[#151617]/90">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 md:px-8">
           <Link href={localizedPath(locale, '/', rootMode)} className="group flex items-center gap-3">
             <span className="grid h-10 w-10 place-items-center rounded-full bg-ink text-sm font-semibold text-white dark:bg-white dark:text-ink">
@@ -60,6 +70,22 @@ export function SiteShell({ locale, children, rootMode = false, currentPath = '/
             {copy.languageLabel}
           </Link>
         </div>
+
+        <nav className="mx-auto flex max-w-7xl gap-2 overflow-x-auto px-5 pb-3 md:px-8 lg:hidden" aria-label="Mobile navigation">
+          {mobileNavItems.map(([key, href]) => (
+            <Link
+              key={key}
+              href={localizedPath(locale, href, rootMode)}
+              className={`shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition ${
+                isActive(href)
+                  ? 'border-ink bg-ink text-white shadow-soft dark:border-white dark:bg-white dark:text-ink'
+                  : 'border-ink/10 bg-white/75 text-ink/70 hover:border-teal hover:text-teal dark:border-white/10 dark:bg-white/10 dark:text-white/72'
+              }`}
+            >
+              {copy.nav[key]}
+            </Link>
+          ))}
+        </nav>
       </header>
 
       <main>{children}</main>

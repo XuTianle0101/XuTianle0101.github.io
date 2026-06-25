@@ -17,7 +17,7 @@ export function ResumePage({ locale }: { locale: Locale }) {
         <p>{text(profile.summary, locale)}</p>
       </SectionHeading>
 
-      <div className="mb-10 border border-line bg-white p-6 dark:border-white/10 dark:bg-white/[0.04]">
+      <div className="mb-10 rounded-[1.75rem] border border-line bg-white/92 p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.04] sm:p-6 md:rounded-none">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <h2 className="font-serif text-3xl">{text(profile.name, locale)}</h2>

@@ -29,7 +29,7 @@ export function ContactPage({ locale }: { locale: Locale }) {
         <p>{text(profile.summary, locale)}</p>
       </SectionHeading>
 
-      <div className="grid gap-5 md:grid-cols-2">
+      <div className="grid gap-5 sm:grid-cols-2">
         {directContacts.map((item) => {
           const content = (
             <>
@@ -39,17 +39,17 @@ export function ContactPage({ locale }: { locale: Locale }) {
           );
 
           return item.href ? (
-            <a key={item.label} href={item.href} className="border border-line bg-white p-6 transition hover:-translate-y-1 hover:shadow-soft dark:border-white/10 dark:bg-white/[0.04]">
+            <a key={item.label} href={item.href} className="rounded-[1.75rem] border border-line bg-white/92 p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-soft dark:border-white/10 dark:bg-white/[0.04] sm:p-6 md:rounded-none">
               {content}
             </a>
           ) : (
-            <div key={item.label} className="border border-line bg-white p-6 dark:border-white/10 dark:bg-white/[0.04]">
+            <div key={item.label} className="rounded-[1.75rem] border border-line bg-white/92 p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.04] sm:p-6 md:rounded-none">
               {content}
             </div>
           );
         })}
         {profile.socials.map((item) => (
-          <a key={item.label} href={item.href} className="border border-line bg-white p-6 transition hover:-translate-y-1 hover:shadow-soft dark:border-white/10 dark:bg-white/[0.04]">
+          <a key={item.label} href={item.href} className="rounded-[1.75rem] border border-line bg-white/92 p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-soft dark:border-white/10 dark:bg-white/[0.04] sm:p-6 md:rounded-none">
             <p className="text-sm uppercase tracking-[0.18em] text-teal">Link</p>
             <h2 className="mt-4 font-serif text-3xl">{item.label}</h2>
           </a>
