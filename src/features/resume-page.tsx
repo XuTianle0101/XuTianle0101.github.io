@@ -18,23 +18,23 @@ export function ResumePage({ locale }: { locale: Locale }) {
       </SectionHeading>
 
       <div className="mb-10 rounded-[1.75rem] border border-line bg-white/92 p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.04] sm:p-6 md:rounded-none">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h2 className="font-serif text-3xl">{text(profile.name, locale)}</h2>
-            <p className="mt-2 text-ink/68 dark:text-white/68">{text(profile.headline, locale)}</p>
+        <div>
+          <h2 className="font-serif text-3xl">{text(profile.name, locale)}</h2>
+          <p className="mt-2 text-ink/68 dark:text-white/68">{text(profile.headline, locale)}</p>
+          <div className="mt-4 flex flex-wrap gap-3 text-sm text-ink/60 dark:text-white/60">
+            <a href={`mailto:${profile.email}`} className="hover:text-coral">{profile.email}</a>
+            <a href={`tel:${profile.phone}`} className="hover:text-coral">{profile.phone}</a>
+            <span>WeChat: {profile.wechat}</span>
+            <span>{text(profile.location, locale)}</span>
           </div>
-          <a href="/resume.pdf" className="w-fit rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white hover:bg-coral dark:bg-white dark:text-ink">
-            {copy.downloadResume}
-          </a>
         </div>
-        <p className="mt-4 text-sm text-ink/55 dark:text-white/55">{copy.resumePending}</p>
       </div>
 
       <div className="grid gap-10 lg:grid-cols-[1fr_0.75fr]">
         <div>
           <h2 className="font-serif text-3xl">{copy.nav.experience}</h2>
           <div className="mt-6 grid gap-6">
-            {experiences.slice(0, 2).map((item) => (
+            {experiences.map((item) => (
               <ExperienceCard key={item.id} item={item} locale={locale} compact />
             ))}
           </div>
@@ -61,6 +61,42 @@ export function ResumePage({ locale }: { locale: Locale }) {
                 <span key={skill} className="rounded-full bg-ink/[0.06] px-3 py-1 text-sm dark:bg-white/10">
                   {skill}
                 </span>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <h2 className="font-serif text-3xl">{locale === 'zh' ? '教育背景' : 'Education'}</h2>
+            <div className="mt-5 space-y-5">
+              {profile.education.map((item) => (
+                <div key={`${item.period}-${text(item.degree, locale)}`} className="border-l-2 border-coral pl-4">
+                  <p className="text-sm font-semibold text-coral">{item.period}</p>
+                  <h3 className="mt-1 font-serif text-xl">{text(item.school, locale)}</h3>
+                  <p className="mt-1 text-sm leading-6 text-ink/65 dark:text-white/65">{text(item.degree, locale)}</p>
+                  <p className="mt-1 text-sm leading-6 text-ink/55 dark:text-white/55">{text(item.details, locale)}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <h2 className="font-serif text-3xl">{locale === 'zh' ? '荣誉奖项' : 'Honors'}</h2>
+            <div className="mt-5 space-y-3">
+              {profile.honors.map((honor) => (
+                <p key={text(honor, locale)} className="border-l-2 border-teal pl-4 text-sm leading-6 text-ink/65 dark:text-white/65">
+                  {text(honor, locale)}
+                </p>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <h2 className="font-serif text-3xl">{locale === 'zh' ? '学生工作与语言' : 'Service & Language'}</h2>
+            <div className="mt-5 space-y-3">
+              {[...profile.service, ...profile.languages].map((item) => (
+                <p key={text(item, locale)} className="border-l-2 border-coral pl-4 text-sm leading-6 text-ink/65 dark:text-white/65">
+                  {text(item, locale)}
+                </p>
               ))}
             </div>
           </div>

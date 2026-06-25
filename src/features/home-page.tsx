@@ -63,7 +63,7 @@ export function HomePage({ locale, rootMode = false }: HomePageProps) {
       </section>
 
       <section className="border-y border-line bg-white/82 px-5 py-14 backdrop-blur dark:border-white/10 dark:bg-white/[0.03] md:px-8 md:py-16">
-        <div className="mx-auto grid max-w-7xl gap-6 md:grid-cols-3">
+        <div className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 xl:grid-cols-4">
           {profile.skillGroups.map((group) => (
             <div key={text(group.name, locale)} className="rounded-3xl border border-line/70 bg-paper/70 p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.04] md:rounded-none md:border-0 md:border-l-2 md:border-teal md:bg-transparent md:p-0 md:pl-5 md:shadow-none">
               <h2 className="font-serif text-2xl">{text(group.name, locale)}</h2>

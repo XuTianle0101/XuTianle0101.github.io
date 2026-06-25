@@ -12,8 +12,8 @@ export function ExperiencePage({ locale }: { locale: Locale }) {
       >
         <p>
           {locale === 'zh'
-            ? '这里按时间和类型整理可展示的工作，首版内容是示例占位，后续可以直接替换为真实经历。'
-            : 'This page organizes visible work by time and type. The first version uses placeholder content that can be replaced with real experience.'}
+            ? '这里按时间和类型整理 AI Infra、多模态视觉、医学影像重建、科研和项目实践。'
+            : 'This page organizes AI infra, multimodal vision, medical imaging reconstruction, research, and project experience by time and type.'}
         </p>
       </SectionHeading>
 

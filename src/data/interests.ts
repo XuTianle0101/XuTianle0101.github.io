@@ -18,12 +18,12 @@ export const interests: Interest[] = [
   },
   {
     title: {
-      zh: '摄影与城市漫步',
-      en: 'Photography & City Walks',
+      zh: '运动',
+      en: 'Sports',
     },
     description: {
-      zh: '用图像观察城市结构、光线和日常生活里的小秩序。',
-      en: 'Observing city structure, light, and small patterns of daily life through images.',
+      zh: '保持规律运动，在训练和团队活动中延续自律、执行力和协作感。',
+      en: 'Keeping a regular sports routine and carrying discipline, execution, and teamwork into daily work.',
     },
   },
   {

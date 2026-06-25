@@ -22,6 +22,7 @@ export function AboutPage({ locale }: { locale: Locale }) {
                 <p className="text-sm font-semibold text-coral">{item.period}</p>
                 <h3 className="mt-2 font-serif text-2xl">{text(item.school, locale)}</h3>
                 <p className="mt-2 leading-7 text-ink/68 dark:text-white/68">{text(item.degree, locale)}</p>
+                <p className="mt-2 text-sm leading-6 text-ink/58 dark:text-white/58">{text(item.details, locale)}</p>
               </article>
             ))}
           </div>
@@ -36,6 +37,28 @@ export function AboutPage({ locale }: { locale: Locale }) {
                   <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-teal">{text(group.name, locale)}</h3>
                   <p className="mt-2 leading-7 text-ink/70 dark:text-white/70">{group.skills.join(' / ')}</p>
                 </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-[1.75rem] border border-line bg-white/92 p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.04] sm:p-6 md:rounded-none">
+            <h2 className="font-serif text-3xl">{locale === 'zh' ? '荣誉奖项' : 'Honors'}</h2>
+            <div className="mt-6 grid gap-4">
+              {profile.honors.map((honor) => (
+                <div key={text(honor, locale)} className="border-l-2 border-coral pl-4">
+                  <p className="leading-7 text-ink/70 dark:text-white/70">{text(honor, locale)}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-[1.75rem] border border-line bg-white/92 p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.04] sm:p-6 md:rounded-none">
+            <h2 className="font-serif text-3xl">{locale === 'zh' ? '学生工作与语言' : 'Service & Language'}</h2>
+            <div className="mt-6 grid gap-4">
+              {[...profile.service, ...profile.languages].map((item) => (
+                <p key={text(item, locale)} className="border-l-2 border-teal pl-4 leading-7 text-ink/66 dark:text-white/66">
+                  {text(item, locale)}
+                </p>
               ))}
             </div>
           </div>

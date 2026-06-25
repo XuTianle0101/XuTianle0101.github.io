@@ -34,8 +34,6 @@ export const dictionary = {
     viewAll: '查看全部',
     readPost: '阅读文章',
     present: '至今',
-    downloadResume: '下载 PDF 简历',
-    resumePending: '将你的 PDF 简历放到 public/resume.pdf 后启用下载。',
     empty: '内容准备中。',
   },
   en: {
@@ -57,8 +55,6 @@ export const dictionary = {
     viewAll: 'View all',
     readPost: 'Read post',
     present: 'Present',
-    downloadResume: 'Download PDF Resume',
-    resumePending: 'Add your PDF resume to public/resume.pdf to enable download.',
     empty: 'Content coming soon.',
   },
 } as const;
