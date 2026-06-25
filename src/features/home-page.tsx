@@ -50,12 +50,12 @@ export function HomePage({ locale, rootMode = false }: HomePageProps) {
 
         <div className="relative min-h-[420px] overflow-hidden rounded-[2rem] bg-gradient-to-br from-coral/20 via-white to-teal/20 shadow-soft dark:from-coral/15 dark:via-white/[0.04] dark:to-teal/15 md:min-h-[520px] md:rounded-none">
           <Image src={profile.heroImage} alt="" fill priority sizes="(min-width: 768px) 48vw, 100vw" className="object-cover" />
-          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink/82 via-ink/46 to-transparent p-5 text-white md:p-6">
+          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-white/92 via-white/70 to-transparent p-5 text-ink md:p-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:gap-5">
               <Image src={profile.portrait} alt="" width={116} height={116} className="h-24 w-24 rounded-full border-4 border-white object-cover shadow-soft sm:h-28 sm:w-28" />
               <div>
                 <p className="font-serif text-2xl sm:text-3xl">{text(profile.location, locale)}</p>
-                <p className="mt-2 max-w-md text-sm leading-6 text-white/84">{text(profile.longBio, locale)}</p>
+                <p className="mt-2 max-w-md text-sm leading-6 text-ink/78">{text(profile.longBio, locale)}</p>
               </div>
             </div>
           </div>
