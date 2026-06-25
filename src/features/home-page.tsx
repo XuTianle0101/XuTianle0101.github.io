@@ -26,9 +26,9 @@ export function HomePage({ locale, rootMode = false }: HomePageProps) {
   return (
     <>
       <section className="relative isolate mx-auto grid max-w-7xl gap-8 px-5 pb-16 pt-10 md:grid-cols-[1.05fr_0.95fr] md:gap-10 md:px-8 md:pb-24 md:pt-20">
-        <div className="pointer-events-none absolute inset-x-6 top-8 -z-10 h-56 rounded-full bg-gradient-to-r from-coral/20 via-teal/15 to-moss/20 blur-3xl md:hidden" />
+        <div className="pointer-events-none absolute inset-x-6 top-8 -z-10 h-56 rounded-full bg-gradient-to-r from-coral/20 via-violet/15 to-teal/15 blur-3xl md:hidden" />
         <div className="flex flex-col justify-center">
-          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-coral">{copy.introLabel}</p>
+          <p className="font-accent text-xl text-coral">{copy.introLabel}</p>
           <h1 className="mt-5 break-words font-serif text-5xl leading-[0.96] sm:text-6xl md:mt-6 md:text-8xl">
             {text(profile.name, locale)}
           </h1>
@@ -48,7 +48,7 @@ export function HomePage({ locale, rootMode = false }: HomePageProps) {
           </div>
         </div>
 
-        <div className="relative min-h-[420px] overflow-hidden rounded-[2rem] bg-gradient-to-br from-coral/20 via-white to-teal/20 shadow-soft dark:from-coral/15 dark:via-white/[0.04] dark:to-teal/15 md:min-h-[520px] md:rounded-none">
+        <div className="relative min-h-[420px] overflow-hidden rounded-[2rem] bg-gradient-to-br from-coral/20 via-cloud to-teal/20 shadow-soft dark:from-coral/15 dark:via-white/[0.04] dark:to-teal/15 md:min-h-[520px] md:rounded-none">
           <Image src={profile.heroImage} alt="" fill priority sizes="(min-width: 768px) 48vw, 100vw" className="object-cover" />
           <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-white/92 via-white/70 to-transparent p-5 text-ink md:p-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:gap-5">
@@ -62,7 +62,7 @@ export function HomePage({ locale, rootMode = false }: HomePageProps) {
         </div>
       </section>
 
-      <section className="border-y border-line bg-white/82 px-5 py-14 backdrop-blur dark:border-white/10 dark:bg-white/[0.03] md:px-8 md:py-16">
+      <section className="border-y border-line bg-cloud/86 px-5 py-14 backdrop-blur dark:border-white/10 dark:bg-white/[0.03] md:px-8 md:py-16">
         <div className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 xl:grid-cols-4">
           {profile.skillGroups.map((group) => (
             <div key={text(group.name, locale)} className="rounded-3xl border border-line/70 bg-paper/70 p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.04] md:rounded-none md:border-0 md:border-l-2 md:border-teal md:bg-transparent md:p-0 md:pl-5 md:shadow-none">
@@ -86,7 +86,7 @@ export function HomePage({ locale, rootMode = false }: HomePageProps) {
         </div>
       </section>
 
-      <section className="bg-[#ecefed] px-5 py-20 dark:bg-[#202322] md:px-8">
+      <section className="bg-[#fff0db] px-5 py-20 dark:bg-[#211b2f] md:px-8">
         <div className="mx-auto max-w-7xl">
           <SectionHeading
             eyebrow={copy.featuredPapers}

@@ -36,8 +36,8 @@ export function SiteShell({ locale, children, rootMode = false, currentPath = '/
   };
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-paper text-ink [background:radial-gradient(circle_at_top_left,rgba(214,95,69,0.16),transparent_28rem),radial-gradient(circle_at_90%_8rem,rgba(22,127,122,0.14),transparent_24rem),#f7f7f2] dark:bg-[#151617] dark:text-[#f4f2ea] dark:[background:radial-gradient(circle_at_top_left,rgba(214,95,69,0.14),transparent_28rem),radial-gradient(circle_at_90%_8rem,rgba(22,127,122,0.12),transparent_24rem),#151617]">
-      <header className="sticky top-0 z-50 border-b border-line/80 bg-paper/90 backdrop-blur-xl dark:border-white/10 dark:bg-[#151617]/90">
+    <div className="min-h-screen overflow-x-hidden bg-paper text-ink [background:radial-gradient(circle_at_10%_4rem,rgba(255,62,135,0.18),transparent_26rem),radial-gradient(circle_at_86%_7rem,rgba(124,58,237,0.14),transparent_24rem),radial-gradient(circle_at_70%_34rem,rgba(18,181,203,0.12),transparent_24rem),#fff7ed] dark:bg-[#17141f] dark:text-[#fff7ed] dark:[background:radial-gradient(circle_at_10%_4rem,rgba(255,62,135,0.2),transparent_26rem),radial-gradient(circle_at_86%_7rem,rgba(124,58,237,0.18),transparent_24rem),#17141f]">
+      <header className="sticky top-0 z-50 border-b border-line/80 bg-paper/88 backdrop-blur-xl dark:border-white/10 dark:bg-[#17141f]/90">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 md:px-8">
           <Link href={localizedPath(locale, '/', rootMode)} className="group flex items-center gap-3">
             <span className="grid h-10 w-10 place-items-center rounded-full bg-ink text-sm font-semibold text-white dark:bg-white dark:text-ink">
@@ -45,7 +45,7 @@ export function SiteShell({ locale, children, rootMode = false, currentPath = '/
             </span>
             <span>
               <span className="block font-serif text-lg leading-none">{text(profile.name, locale)}</span>
-              <span className="mt-1 block text-xs uppercase tracking-[0.18em] text-ink/55 dark:text-white/55">
+              <span className="font-accent mt-1 block text-sm text-ink/55 dark:text-white/55">
                 {copy.introLabel}
               </span>
             </span>

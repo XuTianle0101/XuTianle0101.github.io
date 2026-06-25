@@ -1,11 +1,15 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&family=Sriracha&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
   color-scheme: light;
-  --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-serif: Georgia, "Times New Roman", serif;
+  --font-sans: "Inter", "Wotfard", "Noto Sans SC", "Source Han Sans SC", "Microsoft YaHei", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-display: "Inter", "Wotfard", "Noto Sans SC", "Source Han Sans SC", "Microsoft YaHei", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-code: "JetBrains Mono", "Cartograph CF", "Noto Sans SC", "Source Han Sans SC", ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  --font-accent: "Sriracha", "LXGW WenKai Screen", "LXGW WenKai", "Noto Sans SC", cursive;
 }
 
 .dark {
@@ -23,10 +27,33 @@ html {
 body {
   margin: 0;
   min-width: 320px;
+  font-family: var(--font-sans);
+  background: #fff7ed;
+  color: #17141f;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
 }
 
 ::selection {
-  background: rgba(214, 95, 69, 0.24);
+  background: rgba(255, 62, 135, 0.22);
+}
+
+code,
+kbd,
+pre,
+samp {
+  font-family: var(--font-code);
+}
+
+.font-serif {
+  font-family: var(--font-display);
+  font-weight: 650;
+  letter-spacing: 0;
+}
+
+.font-accent {
+  font-family: var(--font-accent);
+  font-weight: 400;
 }
 
 .prose-site {
@@ -36,7 +63,8 @@ body {
 
 .prose-site h2 {
   margin-top: 2rem;
-  font-family: var(--font-serif);
+  font-family: var(--font-display);
+  font-weight: 650;
   font-size: clamp(1.75rem, 4vw, 2.5rem);
   line-height: 1.15;
 }
@@ -52,7 +80,7 @@ body {
 }
 
 .prose-site a {
-  color: #d65f45;
+  color: #ff3e87;
   text-decoration: underline;
   text-decoration-thickness: 1px;
   text-underline-offset: 4px;

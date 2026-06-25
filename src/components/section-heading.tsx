@@ -16,7 +16,7 @@ export function SectionHeading({ eyebrow, title, action, children }: SectionHead
     <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
       <div className="max-w-3xl">
         {eyebrow ? (
-          <p className="mb-3 text-xs font-semibold uppercase tracking-[0.22em] text-coral">{eyebrow}</p>
+          <p className="font-accent mb-3 text-lg text-coral">{eyebrow}</p>
         ) : null}
         <h2 className="font-serif text-[2.15rem] leading-tight md:text-5xl">{title}</h2>
         {children ? <div className="mt-4 text-base leading-8 text-ink/68 dark:text-white/68">{children}</div> : null}
