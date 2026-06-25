@@ -36,7 +36,7 @@ export function SiteShell({ locale, children, rootMode = false, currentPath = '/
   };
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-paper text-ink [background:radial-gradient(circle_at_10%_4rem,rgba(255,62,135,0.18),transparent_26rem),radial-gradient(circle_at_86%_7rem,rgba(124,58,237,0.14),transparent_24rem),radial-gradient(circle_at_70%_34rem,rgba(18,181,203,0.12),transparent_24rem),#fff7ed] dark:bg-[#17141f] dark:text-[#fff7ed] dark:[background:radial-gradient(circle_at_10%_4rem,rgba(255,62,135,0.2),transparent_26rem),radial-gradient(circle_at_86%_7rem,rgba(124,58,237,0.18),transparent_24rem),#17141f]">
+    <div className="min-h-screen overflow-x-hidden bg-paper text-ink [background:radial-gradient(circle_at_10%_4rem,rgba(56,189,248,0.2),transparent_26rem),radial-gradient(circle_at_86%_7rem,rgba(14,165,233,0.16),transparent_24rem),radial-gradient(circle_at_70%_34rem,rgba(125,211,252,0.18),transparent_24rem),#f2fbff] dark:bg-[#071827] dark:text-[#f2fbff] dark:[background:radial-gradient(circle_at_10%_4rem,rgba(56,189,248,0.2),transparent_26rem),radial-gradient(circle_at_86%_7rem,rgba(14,165,233,0.18),transparent_24rem),#071827]">
       <header className="sticky top-0 z-50 border-b border-line/80 bg-paper/88 backdrop-blur-xl dark:border-white/10 dark:bg-[#17141f]/90">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 md:px-8">
           <Link href={localizedPath(locale, '/', rootMode)} className="group flex items-center gap-3">

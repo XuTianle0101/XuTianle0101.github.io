@@ -28,14 +28,14 @@ body {
   margin: 0;
   min-width: 320px;
   font-family: var(--font-sans);
-  background: #fff7ed;
+  background: #f2fbff;
   color: #17141f;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
 }
 
 ::selection {
-  background: rgba(255, 62, 135, 0.22);
+  background: rgba(56, 189, 248, 0.28);
 }
 
 code,
@@ -80,7 +80,7 @@ samp {
 }
 
 .prose-site a {
-  color: #ff3e87;
+  color: #0284c7;
   text-decoration: underline;
   text-decoration-thickness: 1px;
   text-underline-offset: 4px;

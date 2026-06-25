@@ -7,13 +7,13 @@ const config: Config = {
     extend: {
       colors: {
         ink: '#17141f',
-        paper: '#fff7ed',
-        cloud: '#fffdf8',
-        coral: '#ff3e87',
-        teal: '#12b5cb',
-        moss: '#ffd166',
-        violet: '#7c3aed',
-        line: '#eadfce',
+        paper: '#f2fbff',
+        cloud: '#fbfdff',
+        coral: '#38bdf8',
+        teal: '#0ea5e9',
+        moss: '#bae6fd',
+        violet: '#2563eb',
+        line: '#d9edf8',
       },
       fontFamily: {
         sans: ['var(--font-sans)', 'Inter', 'Arial', 'sans-serif'],
@@ -22,7 +22,7 @@ const config: Config = {
         accent: ['var(--font-accent)', 'Sriracha', 'cursive'],
       },
       boxShadow: {
-        soft: '0 22px 70px rgba(63, 28, 96, 0.13)',
+        soft: '0 22px 70px rgba(14, 116, 144, 0.13)',
       },
     },
   },

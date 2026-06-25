@@ -86,7 +86,7 @@ export function HomePage({ locale, rootMode = false }: HomePageProps) {
         </div>
       </section>
 
-      <section className="bg-[#fff0db] px-5 py-20 dark:bg-[#211b2f] md:px-8">
+      <section className="bg-[#e0f2fe] px-5 py-20 dark:bg-[#082f49] md:px-8">
         <div className="mx-auto max-w-7xl">
           <SectionHeading
             eyebrow={copy.featuredPapers}
