@@ -52,7 +52,7 @@ export const experiences: ExperienceItem[] = [
     links: [
       {
         label: 'Code',
-        href: 'https://github.com/yourname/vision-agent',
+        href: 'https://github.com/XuTianle0101/vision-agent',
       },
     ],
   },

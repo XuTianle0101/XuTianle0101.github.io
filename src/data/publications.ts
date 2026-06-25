@@ -26,7 +26,7 @@ export const publications: Publication[] = [
       zh: '面向开放世界场景理解的结构化视觉表示',
       en: 'Structured Visual Representations for Open-world Scene Understanding',
     },
-    authors: ['Your Name', 'Collaborator A', 'Advisor B'],
+    authors: ['xutianle', 'Collaborator A', 'Advisor B'],
     venue: 'Preprint',
     year: 2026,
     type: 'preprint',
@@ -41,7 +41,7 @@ export const publications: Publication[] = [
     featured: true,
     links: {
       arxiv: 'https://arxiv.org/',
-      code: 'https://github.com/yourname',
+      code: 'https://github.com/XuTianle0101',
     },
   },
   {
@@ -50,7 +50,7 @@ export const publications: Publication[] = [
       zh: '复杂视觉任务中的高效评测协议',
       en: 'Efficient Evaluation Protocols for Complex Vision Tasks',
     },
-    authors: ['Your Name', 'Collaborator C'],
+    authors: ['xutianle', 'Collaborator C'],
     venue: 'Workshop on Reliable AI Systems',
     year: 2025,
     type: 'workshop',

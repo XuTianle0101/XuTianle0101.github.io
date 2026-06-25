@@ -76,6 +76,10 @@ export function SiteShell({ locale, children, rootMode = false, currentPath = '/
             <a href={`mailto:${profile.email}`} className="hover:text-coral">
               {profile.email}
             </a>
+            <a href={`tel:${profile.phone}`} className="hover:text-coral">
+              {profile.phone}
+            </a>
+            <span>WeChat: {profile.wechat}</span>
           </div>
         </div>
       </footer>

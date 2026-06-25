@@ -3,6 +3,23 @@ import { profile } from '@/data/profile';
 import { type Locale, text } from '@/i18n';
 
 export function ContactPage({ locale }: { locale: Locale }) {
+  const directContacts = [
+    {
+      label: 'Email',
+      value: profile.email,
+      href: `mailto:${profile.email}`,
+    },
+    {
+      label: locale === 'zh' ? '电话' : 'Phone',
+      value: profile.phone,
+      href: `tel:${profile.phone}`,
+    },
+    {
+      label: locale === 'zh' ? '微信' : 'WeChat',
+      value: profile.wechat,
+    },
+  ];
+
   return (
     <section className="mx-auto max-w-5xl px-5 py-16 md:px-8 md:py-24">
       <SectionHeading
@@ -13,10 +30,24 @@ export function ContactPage({ locale }: { locale: Locale }) {
       </SectionHeading>
 
       <div className="grid gap-5 md:grid-cols-2">
-        <a href={`mailto:${profile.email}`} className="border border-line bg-white p-6 transition hover:-translate-y-1 hover:shadow-soft dark:border-white/10 dark:bg-white/[0.04]">
-          <p className="text-sm uppercase tracking-[0.18em] text-coral">Email</p>
-          <h2 className="mt-4 break-words font-serif text-3xl">{profile.email}</h2>
-        </a>
+        {directContacts.map((item) => {
+          const content = (
+            <>
+              <p className="text-sm uppercase tracking-[0.18em] text-coral">{item.label}</p>
+              <h2 className="mt-4 break-words font-serif text-3xl">{item.value}</h2>
+            </>
+          );
+
+          return item.href ? (
+            <a key={item.label} href={item.href} className="border border-line bg-white p-6 transition hover:-translate-y-1 hover:shadow-soft dark:border-white/10 dark:bg-white/[0.04]">
+              {content}
+            </a>
+          ) : (
+            <div key={item.label} className="border border-line bg-white p-6 dark:border-white/10 dark:bg-white/[0.04]">
+              {content}
+            </div>
+          );
+        })}
         {profile.socials.map((item) => (
           <a key={item.label} href={item.href} className="border border-line bg-white p-6 transition hover:-translate-y-1 hover:shadow-soft dark:border-white/10 dark:bg-white/[0.04]">
             <p className="text-sm uppercase tracking-[0.18em] text-teal">Link</p>

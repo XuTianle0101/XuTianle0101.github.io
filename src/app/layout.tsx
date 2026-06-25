@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Your Name | Academic Personal Homepage',
+  title: 'xutianle | Academic Personal Homepage',
   description: 'A bilingual academic and career personal homepage.',
 };
 

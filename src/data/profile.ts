@@ -2,8 +2,8 @@ import type { LocalizedString } from '@/i18n';
 
 export const profile = {
   name: {
-    zh: '你的名字',
-    en: 'Your Name',
+    zh: 'xutianle',
+    en: 'xutianle',
   },
   headline: {
     zh: '计算机视觉 / 多模态智能 / 全栈工程',
@@ -13,7 +13,9 @@ export const profile = {
     zh: '中国，上海',
     en: 'Shanghai, China',
   },
-  email: 'you@example.com',
+  email: 'xutianle@fudan.edu.cn',
+  phone: '15002804372',
+  wechat: 'HAPYHAPYLe',
   portrait: '/images/portrait-placeholder.png',
   heroImage: '/images/editorial-desk.png',
   summary: {
@@ -74,15 +76,7 @@ export const profile = {
   socials: [
     {
       label: 'GitHub',
-      href: 'https://github.com/yourname',
-    },
-    {
-      label: 'Google Scholar',
-      href: 'https://scholar.google.com/',
-    },
-    {
-      label: 'LinkedIn',
-      href: 'https://www.linkedin.com/',
+      href: 'https://github.com/XuTianle0101',
     },
   ],
 } satisfies {
@@ -90,6 +84,8 @@ export const profile = {
   headline: LocalizedString;
   location: LocalizedString;
   email: string;
+  phone: string;
+  wechat: string;
   portrait: string;
   heroImage: string;
   summary: LocalizedString;
