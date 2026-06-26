@@ -148,8 +148,8 @@ export const profile = {
         en: 'Geometric blues',
       },
       caption: {
-        zh: '把工程感和视觉秩序放进个人形象。',
-        en: 'A crisp engineering mood with visual order.',
+        zh: '表达清晰、结构感强，适合跨团队协作中的技术沟通。',
+        en: 'Clear expression and strong structure for cross-team technical collaboration.',
       },
     },
     {
@@ -159,8 +159,8 @@ export const profile = {
         en: 'Riverside dusk',
       },
       caption: {
-        zh: '城市天际线和轻松的户外状态。',
-        en: 'City skyline with a relaxed outdoor frame.',
+        zh: '保持稳定节奏和长期投入，能在复杂项目里持续推进。',
+        en: 'Steady rhythm and long-term focus for moving complex projects forward.',
       },
     },
     {
@@ -170,8 +170,8 @@ export const profile = {
         en: 'City landmark',
       },
       caption: {
-        zh: '旅行切片里的速度感与好奇心。',
-        en: 'Travel energy and curiosity in one frame.',
+        zh: '适应新环境快，乐于把陌生问题拆解成可落地任务。',
+        en: 'Quick to adapt and turn unfamiliar problems into executable tasks.',
       },
     },
     {
@@ -181,8 +181,8 @@ export const profile = {
         en: 'Night skyline',
       },
       caption: {
-        zh: '工作之外，也保留一点明亮和玩心。',
-        en: 'A brighter, playful note beyond work.',
+        zh: '对新技术和新场景保持好奇，愿意主动探索并复盘。',
+        en: 'Curious about new technologies and proactive in exploration and review.',
       },
     },
     {
@@ -192,8 +192,8 @@ export const profile = {
         en: 'Field profile',
       },
       caption: {
-        zh: '开阔场景里的观察者视角。',
-        en: "An observer's profile in an open field.",
+        zh: '重视观察与抽象，善于从真实场景中提炼关键问题。',
+        en: 'Strong observation and abstraction skills for finding core problems.',
       },
     },
     {
@@ -203,8 +203,8 @@ export const profile = {
         en: 'Museum smile',
       },
       caption: {
-        zh: '更生活化的一面，打破纯简历感。',
-        en: 'A more personal side beyond the resume.',
+        zh: '亲和开放，适合高频沟通、快速迭代的研发团队。',
+        en: 'Open and approachable for high-communication, fast-iteration teams.',
       },
     },
     {
@@ -214,8 +214,8 @@ export const profile = {
         en: 'Graduation moment',
       },
       caption: {
-        zh: '从复旦出发的阶段性记录。',
-        en: 'A milestone record from Fudan.',
+        zh: '复旦训练带来的数理基础、学习能力和持续成长性。',
+        en: 'Fudan training with mathematical grounding, learning ability, and growth.',
       },
     },
     {
@@ -225,8 +225,8 @@ export const profile = {
         en: 'Shadow silhouette',
       },
       caption: {
-        zh: '留一点安静和抽象的空间。',
-        en: 'A quieter, more abstract visual pause.',
+        zh: '能在不确定场景中保持专注，沉下心解决核心问题。',
+        en: 'Focused under uncertainty and patient with hard technical problems.',
       },
     },
     {
@@ -236,8 +236,8 @@ export const profile = {
         en: 'Sunlit break',
       },
       caption: {
-        zh: '日常休息，也可以成为个人页面的呼吸感。',
-        en: 'A daily pause that gives the page room to breathe.',
+        zh: '有稳定生活节奏和抗压状态，适合长期工程投入。',
+        en: 'Balanced routines and resilience for sustained engineering work.',
       },
     },
   ],

@@ -51,13 +51,7 @@ export function HomePage({ locale, rootMode = false }: HomePageProps) {
         <div className="relative min-h-[420px] overflow-hidden rounded-[2rem] bg-gradient-to-br from-coral/20 via-cloud to-teal/20 shadow-soft dark:from-coral/15 dark:via-white/[0.04] dark:to-teal/15 md:min-h-[520px] md:rounded-none">
           <Image src={profile.heroImage} alt="" fill priority sizes="(min-width: 768px) 48vw, 100vw" className="bg-white object-contain p-4" />
           <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-white/92 via-white/70 to-transparent p-5 text-ink md:p-6">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:gap-5">
-              <Image src={profile.portrait} alt="" width={116} height={116} className="h-24 w-24 rounded-full border-4 border-white object-cover shadow-soft sm:h-28 sm:w-28" />
-              <div>
-                <p className="font-serif text-2xl sm:text-3xl">{text(profile.location, locale)}</p>
-                <p className="mt-2 max-w-md text-sm leading-6 text-ink/78">{text(profile.longBio, locale)}</p>
-              </div>
-            </div>
+            <Image src={profile.portrait} alt="" width={116} height={116} className="h-24 w-24 rounded-full border-4 border-white object-cover shadow-soft sm:h-28 sm:w-28" />
           </div>
         </div>
       </section>
@@ -70,67 +64,6 @@ export function HomePage({ locale, rootMode = false }: HomePageProps) {
               <p className="mt-3 leading-7 text-ink/65 dark:text-white/65">{group.skills.join(' / ')}</p>
             </div>
           ))}
-        </div>
-      </section>
-
-      <section className="relative overflow-hidden bg-[#fff4df] px-5 py-20 dark:bg-[#10202a] md:px-8">
-        <div className="pointer-events-none absolute -left-24 top-14 h-64 w-64 rounded-full bg-coral/20 blur-3xl" />
-        <div className="pointer-events-none absolute -right-20 bottom-0 h-72 w-72 rounded-full bg-teal/20 blur-3xl" />
-        <div className="relative mx-auto max-w-7xl">
-          <SectionHeading
-            eyebrow={locale === 'zh' ? '个人形象' : 'Personal Visuals'}
-            title={locale === 'zh' ? '把技术履历之外的状态也放进页面' : 'A visual layer beyond the technical profile'}
-          />
-          <div className="grid gap-7 lg:grid-cols-[0.78fr_1.22fr]">
-            <div className="overflow-hidden border border-ink/10 bg-white/70 shadow-soft dark:border-white/10 dark:bg-white/[0.06]">
-              <div className="relative aspect-[4/5]">
-                <Image
-                  src={profile.portrait}
-                  alt={locale === 'zh' ? '徐天乐的个人主视觉头像' : 'Personal avatar of Xu Tianle'}
-                  fill
-                  sizes="(min-width: 1024px) 31vw, 100vw"
-                  className="bg-white object-contain p-4"
-                />
-              </div>
-              <div className="p-6">
-                <p className="font-accent text-lg text-teal">{locale === 'zh' ? 'Personal avatar' : 'Personal avatar'}</p>
-                <h3 className="mt-3 font-serif text-3xl">
-                  {locale === 'zh' ? '使用你指定的主视觉形象' : 'Using the avatar you selected'}
-                </h3>
-                <p className="mt-4 leading-7 text-ink/68 dark:text-white/70">
-                  {locale === 'zh'
-                    ? '这里直接使用 personal pics/me.png 作为首页主视觉和头像，避免继续使用上一版自动生成的黑白卡通图。'
-                    : 'This section now uses personal pics/me.png directly as both the homepage hero visual and avatar, replacing the previous generated cartoon.'}
-                </p>
-              </div>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {profile.visualGallery.map((photo, index) => (
-                <figure
-                  key={photo.image}
-                  className={`group overflow-hidden border border-ink/10 bg-white/75 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-soft dark:border-white/10 dark:bg-white/[0.05] ${
-                    index === 0 ? 'sm:col-span-2 xl:col-span-1' : ''
-                  }`}
-                >
-                  <div className="relative aspect-[4/5] overflow-hidden">
-                    <Image
-                      src={photo.image}
-                      alt={text(photo.title, locale)}
-                      fill
-                      sizes="(min-width: 1280px) 20vw, (min-width: 640px) 45vw, 100vw"
-                      className="object-cover transition duration-500 group-hover:scale-105"
-                    />
-                    <div className="absolute inset-x-3 top-3 h-1 bg-coral/80" />
-                  </div>
-                  <figcaption className="p-4">
-                    <h3 className="font-serif text-xl">{text(photo.title, locale)}</h3>
-                    <p className="mt-2 text-sm leading-6 text-ink/62 dark:text-white/62">{text(photo.caption, locale)}</p>
-                  </figcaption>
-                </figure>
-              ))}
-            </div>
-          </div>
         </div>
       </section>
 
@@ -188,6 +121,39 @@ export function HomePage({ locale, rootMode = false }: HomePageProps) {
             ))}
           </div>
         </aside>
+      </section>
+
+      <section className="relative overflow-hidden bg-[#fff4df] px-5 py-20 dark:bg-[#10202a] md:px-8">
+        <div className="pointer-events-none absolute -left-24 top-14 h-64 w-64 rounded-full bg-coral/20 blur-3xl" />
+        <div className="pointer-events-none absolute -right-20 bottom-0 h-72 w-72 rounded-full bg-teal/20 blur-3xl" />
+        <div className="relative mx-auto max-w-7xl">
+          <SectionHeading eyebrow={locale === 'zh' ? '个人形象' : 'Personal Visuals'} title={locale === 'zh' ? '技术之外' : 'Beyond technology'} />
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {profile.visualGallery.map((photo, index) => (
+              <figure
+                key={photo.image}
+                className={`group overflow-hidden border border-ink/10 bg-white/75 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-soft dark:border-white/10 dark:bg-white/[0.05] ${
+                  index === 0 ? 'sm:col-span-2 lg:col-span-1' : ''
+                }`}
+              >
+                <div className="relative aspect-[4/5] overflow-hidden">
+                  <Image
+                    src={photo.image}
+                    alt={text(photo.title, locale)}
+                    fill
+                    sizes="(min-width: 1024px) 31vw, (min-width: 640px) 45vw, 100vw"
+                    className="object-cover transition duration-500 group-hover:scale-105"
+                  />
+                  <div className="absolute inset-x-3 top-3 h-1 bg-coral/80" />
+                </div>
+                <figcaption className="p-4">
+                  <h3 className="font-serif text-xl">{text(photo.title, locale)}</h3>
+                  <p className="mt-2 text-sm leading-6 text-ink/62 dark:text-white/62">{text(photo.caption, locale)}</p>
+                </figcaption>
+              </figure>
+            ))}
+          </div>
+        </div>
       </section>
     </>
   );
