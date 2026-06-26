@@ -50,9 +50,6 @@ export function HomePage({ locale, rootMode = false }: HomePageProps) {
 
         <div className="relative min-h-[420px] overflow-hidden rounded-[2rem] bg-gradient-to-br from-coral/20 via-cloud to-teal/20 shadow-soft dark:from-coral/15 dark:via-white/[0.04] dark:to-teal/15 md:min-h-[520px] md:rounded-none">
           <Image src={profile.heroImage} alt="" fill priority sizes="(min-width: 768px) 48vw, 100vw" className="bg-white object-contain p-4" />
-          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-white/92 via-white/70 to-transparent p-5 text-ink md:p-6">
-            <Image src={profile.portrait} alt="" width={116} height={116} className="h-24 w-24 rounded-full border-4 border-white object-cover shadow-soft sm:h-28 sm:w-28" />
-          </div>
         </div>
       </section>
 
@@ -128,27 +125,25 @@ export function HomePage({ locale, rootMode = false }: HomePageProps) {
         <div className="pointer-events-none absolute -right-20 bottom-0 h-72 w-72 rounded-full bg-teal/20 blur-3xl" />
         <div className="relative mx-auto max-w-7xl">
           <SectionHeading eyebrow={locale === 'zh' ? '个人形象' : 'Personal Visuals'} title={locale === 'zh' ? '技术之外' : 'Beyond technology'} />
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {profile.visualGallery.map((photo, index) => (
+          <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            {profile.visualGallery.map((photo) => (
               <figure
                 key={photo.image}
-                className={`group overflow-hidden border border-ink/10 bg-white/75 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-soft dark:border-white/10 dark:bg-white/[0.05] ${
-                  index === 0 ? 'sm:col-span-2 lg:col-span-1' : ''
-                }`}
+                className="group overflow-hidden border border-ink/10 bg-white/75 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-soft dark:border-white/10 dark:bg-white/[0.05]"
               >
-                <div className="relative aspect-[4/5] overflow-hidden">
+                <div className="relative aspect-[3/4] overflow-hidden">
                   <Image
                     src={photo.image}
                     alt={text(photo.title, locale)}
                     fill
-                    sizes="(min-width: 1024px) 31vw, (min-width: 640px) 45vw, 100vw"
+                    sizes="(min-width: 1024px) 19vw, (min-width: 640px) 31vw, 100vw"
                     className="object-cover transition duration-500 group-hover:scale-105"
                   />
                   <div className="absolute inset-x-3 top-3 h-1 bg-coral/80" />
                 </div>
-                <figcaption className="p-4">
-                  <h3 className="font-serif text-xl">{text(photo.title, locale)}</h3>
-                  <p className="mt-2 text-sm leading-6 text-ink/62 dark:text-white/62">{text(photo.caption, locale)}</p>
+                <figcaption className="p-3">
+                  <h3 className="font-serif text-lg">{text(photo.title, locale)}</h3>
+                  <p className="mt-2 text-xs leading-5 text-ink/62 dark:text-white/62">{text(photo.caption, locale)}</p>
                 </figcaption>
               </figure>
             ))}
