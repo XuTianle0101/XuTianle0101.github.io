@@ -36,7 +36,15 @@ export function SiteShell({ locale, children, rootMode = false, currentPath = '/
   };
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-paper text-ink [background:radial-gradient(circle_at_10%_4rem,rgba(56,189,248,0.2),transparent_26rem),radial-gradient(circle_at_86%_7rem,rgba(14,165,233,0.16),transparent_24rem),radial-gradient(circle_at_70%_34rem,rgba(125,211,252,0.18),transparent_24rem),#f2fbff] dark:bg-[#071827] dark:text-[#f2fbff] dark:[background:radial-gradient(circle_at_10%_4rem,rgba(56,189,248,0.2),transparent_26rem),radial-gradient(circle_at_86%_7rem,rgba(14,165,233,0.18),transparent_24rem),#071827]">
+    <div className="relative min-h-screen overflow-x-hidden bg-paper text-ink [background:radial-gradient(circle_at_10%_4rem,rgba(56,189,248,0.18),transparent_26rem),radial-gradient(circle_at_86%_7rem,rgba(14,165,233,0.14),transparent_24rem),radial-gradient(circle_at_70%_34rem,rgba(125,211,252,0.14),transparent_24rem),#f2fbff] dark:bg-[#071827] dark:text-[#f2fbff] dark:[background:radial-gradient(circle_at_10%_4rem,rgba(56,189,248,0.16),transparent_26rem),radial-gradient(circle_at_86%_7rem,rgba(14,165,233,0.14),transparent_24rem),#071827]">
+      <div className="site-bg-layer" aria-hidden="true">
+        <span className="site-bg-asset site-bg-cloud-binary" />
+        <span className="site-bg-asset site-bg-cloud-upload" />
+        <span className="site-bg-asset site-bg-code-mark" />
+        <span className="site-bg-asset site-bg-brain-metrics" />
+        <span className="site-bg-asset site-bg-hero-books" />
+        <span className="site-bg-asset site-bg-garden" />
+      </div>
       <header className="sticky top-0 z-50 border-b border-line/80 bg-paper/88 backdrop-blur-xl dark:border-white/10 dark:bg-[#17141f]/90">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 md:px-8">
           <Link href={localizedPath(locale, '/', rootMode)} className="group flex items-center gap-3">
@@ -88,9 +96,9 @@ export function SiteShell({ locale, children, rootMode = false, currentPath = '/
         </nav>
       </header>
 
-      <main>{children}</main>
+      <main className="relative z-10">{children}</main>
 
-      <footer className="border-t border-line px-5 py-10 dark:border-white/10 md:px-8">
+      <footer className="relative z-10 border-t border-line bg-paper/70 px-5 py-10 backdrop-blur-sm dark:border-white/10 dark:bg-[#071827]/70 md:px-8">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 text-sm text-ink/60 dark:text-white/60 md:flex-row md:items-center md:justify-between">
           <p>© {new Date().getFullYear()} {text(profile.name, locale)}.</p>
           <div className="flex flex-wrap gap-4">
