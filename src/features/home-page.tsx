@@ -53,7 +53,7 @@ export function HomePage({ locale, rootMode = false }: HomePageProps) {
         </div>
       </section>
 
-      <section className="border-y border-line bg-cloud/78 px-5 py-14 backdrop-blur dark:border-white/10 dark:bg-white/[0.035] md:px-8 md:py-16">
+      <section className="border-y border-line bg-cloud/86 px-5 py-14 backdrop-blur dark:border-white/10 dark:bg-white/[0.03] md:px-8 md:py-16">
         <div className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 xl:grid-cols-4">
           {profile.skillGroups.map((group) => (
             <div key={text(group.name, locale)} className="rounded-3xl border border-line/70 bg-paper/70 p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.04] md:rounded-none md:border-0 md:border-l-2 md:border-teal md:bg-transparent md:p-0 md:pl-5 md:shadow-none">
@@ -77,7 +77,7 @@ export function HomePage({ locale, rootMode = false }: HomePageProps) {
         </div>
       </section>
 
-      <section className="bg-[#e0f2fe]/82 px-5 py-20 backdrop-blur-[1px] dark:bg-[#082f49]/88 md:px-8">
+      <section className="bg-[#e0f2fe] px-5 py-20 dark:bg-[#082f49] md:px-8">
         <div className="mx-auto max-w-7xl">
           <SectionHeading
             eyebrow={copy.featuredPapers}
@@ -120,7 +120,7 @@ export function HomePage({ locale, rootMode = false }: HomePageProps) {
         </aside>
       </section>
 
-      <section className="relative overflow-hidden bg-[#fff4df]/84 px-5 py-20 backdrop-blur-[1px] dark:bg-[#10202a]/88 md:px-8">
+      <section className="relative overflow-hidden bg-[#fff4df] px-5 py-20 dark:bg-[#10202a] md:px-8">
         <div className="pointer-events-none absolute -left-24 top-14 h-64 w-64 rounded-full bg-coral/20 blur-3xl" />
         <div className="pointer-events-none absolute -right-20 bottom-0 h-72 w-72 rounded-full bg-teal/20 blur-3xl" />
         <div className="relative mx-auto max-w-7xl">
