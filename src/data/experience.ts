@@ -48,7 +48,7 @@ export const experiences: ExperienceItem[] = [
       },
     ],
     tech: ['vLLM', 'MLU', 'Python', 'CUDA', 'LLM Inference'],
-    image: '/images/organizations/cambricon.jpeg',
+    image: '/images/organizations/cambricon.png',
   },
   {
     id: 'migu-world-cup-vlm',

@@ -31,7 +31,7 @@ export function ExperienceCard({ item, locale, compact = false }: ExperienceCard
           alt={text(item.organization, locale)}
           fill
           sizes="(min-width: 768px) 40vw, 100vw"
-          className="object-contain p-10 transition duration-500 group-hover:scale-105 sm:p-12"
+          className="object-contain p-3 transition duration-500 group-hover:scale-105 sm:p-4"
         />
       </div>
       <div className="p-5 sm:p-6">
