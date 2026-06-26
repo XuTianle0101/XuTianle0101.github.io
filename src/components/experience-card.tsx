@@ -25,13 +25,13 @@ const kindLabels = {
 export function ExperienceCard({ item, locale, compact = false }: ExperienceCardProps) {
   return (
     <article className="group overflow-hidden rounded-[1.75rem] border border-line bg-white/92 shadow-sm transition hover:-translate-y-1 hover:shadow-soft dark:border-white/10 dark:bg-white/[0.04] md:rounded-none">
-      <div className="relative aspect-[4/3] overflow-hidden bg-gradient-to-br from-coral/20 via-line to-teal/20 sm:aspect-[16/10]">
+      <div className="relative aspect-[4/3] overflow-hidden bg-white sm:aspect-[16/10]">
         <Image
           src={item.image}
-          alt=""
+          alt={text(item.organization, locale)}
           fill
           sizes="(min-width: 768px) 40vw, 100vw"
-          className="object-cover transition duration-500 group-hover:scale-105"
+          className="object-contain p-10 transition duration-500 group-hover:scale-105 sm:p-12"
         />
       </div>
       <div className="p-5 sm:p-6">
