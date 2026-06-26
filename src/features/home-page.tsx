@@ -90,26 +90,27 @@ export function HomePage({ locale, rootMode = false }: HomePageProps) {
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-7xl gap-12 px-5 py-20 md:grid-cols-[1fr_0.8fr] md:px-8">
-        <div>
-          <SectionHeading
-            eyebrow={copy.latestWriting}
-            title={locale === 'zh' ? '把做过的事写清楚' : 'Writing down the work'}
-            action={{ label: copy.viewAll, href: localizedPath(locale, '/blog', rootMode) }}
-          />
-          <div className="space-y-5">
-            {posts.map((post) => (
-              <Link key={post.slug} href={localizedPath(locale, `/blog/${post.slug}`, rootMode)} className="block border-t border-line py-5 hover:text-coral dark:border-white/10">
-                <p className="text-sm text-ink/55 dark:text-white/55">{formatDate(post.date, locale)}</p>
-                <h3 className="mt-2 font-serif text-3xl">{text(post.title, locale)}</h3>
-                <p className="mt-3 leading-7 text-ink/68 dark:text-white/68">{text(post.description, locale)}</p>
-              </Link>
-            ))}
-          </div>
+      <section className="mx-auto max-w-7xl px-5 py-20 md:px-8">
+        <SectionHeading
+          eyebrow={copy.latestWriting}
+          title={locale === 'zh' ? '把做过的事写清楚' : 'Writing down the work'}
+          action={{ label: copy.viewAll, href: localizedPath(locale, '/blog', rootMode) }}
+        />
+        <div className="grid gap-5 md:grid-cols-2">
+          {posts.map((post) => (
+            <Link key={post.slug} href={localizedPath(locale, `/blog/${post.slug}`, rootMode)} className="block border-t border-line bg-white/55 p-5 hover:text-coral dark:border-white/10 dark:bg-white/[0.04]">
+              <p className="text-sm text-ink/55 dark:text-white/55">{formatDate(post.date, locale)}</p>
+              <h3 className="mt-2 font-serif text-3xl">{text(post.title, locale)}</h3>
+              <p className="mt-3 leading-7 text-ink/68 dark:text-white/68">{text(post.description, locale)}</p>
+            </Link>
+          ))}
         </div>
-        <aside>
+      </section>
+
+      <section className="border-y border-line bg-cloud/86 px-5 py-20 dark:border-white/10 dark:bg-white/[0.03] md:px-8">
+        <div className="mx-auto max-w-7xl">
           <SectionHeading eyebrow={copy.interests} title={locale === 'zh' ? '工作之外的线索' : 'Signals beyond work'} />
-          <div className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-3">
             {interests.map((interest) => (
               <div key={text(interest.title, locale)} className="border border-line bg-white p-5 dark:border-white/10 dark:bg-white/[0.04]">
                 <h3 className="font-serif text-2xl">{text(interest.title, locale)}</h3>
@@ -117,7 +118,7 @@ export function HomePage({ locale, rootMode = false }: HomePageProps) {
               </div>
             ))}
           </div>
-        </aside>
+        </div>
       </section>
 
       <section className="relative overflow-hidden bg-[#fff4df] px-5 py-20 dark:bg-[#10202a] md:px-8">
