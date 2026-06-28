@@ -1,15 +1,13 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&family=Sriracha&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
   color-scheme: light;
-  --font-sans: "Inter", "Wotfard", "Noto Sans SC", "Source Han Sans SC", "Microsoft YaHei", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-display: "Inter", "Wotfard", "Noto Sans SC", "Source Han Sans SC", "Microsoft YaHei", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-code: "JetBrains Mono", "Cartograph CF", "Noto Sans SC", "Source Han Sans SC", ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
-  --font-accent: "Sriracha", "LXGW WenKai Screen", "LXGW WenKai", "Noto Sans SC", cursive;
+  --font-sans: "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", "Segoe UI", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", "Segoe UI", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-code: Consolas, "Liberation Mono", "Courier New", ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  --font-accent: "Segoe Print", "KaiTi", "STKaiti", "Microsoft YaHei", cursive;
 }
 
 .dark {

@@ -16,8 +16,8 @@ export const profile = {
   email: 'xutianle@fudan.edu.cn',
   phone: '15002804372',
   wechat: 'HAPYHAPYLe',
-  portrait: '/images/persona/me.png',
-  heroImage: '/images/persona/me.png',
+  portrait: '/images/persona/me-hero.webp',
+  heroImage: '/images/persona/me-hero.webp',
   summary: {
     zh: '复旦大学生物医学工程硕士研究生，方向聚焦 AI 算法、大模型推理引擎、多模态视觉和医学影像重建。曾在寒武纪、咪咕视频、纳米维景医疗等场景中参与 vLLM_MLU、世界杯 AI 解说 VLM、32 源相控阵 CT 重建等项目。',
     en: 'I am a Biomedical Engineering master student at Fudan University, focused on AI algorithms, LLM inference systems, multimodal vision, and medical imaging reconstruction. My work spans vLLM_MLU on Cambricon MLUs, World Cup AI commentary VLMs, and multi-source CT reconstruction.',
@@ -142,7 +142,7 @@ export const profile = {
   ],
   visualGallery: [
     {
-      image: '/images/persona/gallery-geometry-wall.jpg',
+      image: '/images/persona/gallery-geometry-wall.webp',
       title: {
         zh: '几何蓝墙',
         en: 'Geometric blues',
@@ -153,7 +153,7 @@ export const profile = {
       },
     },
     {
-      image: '/images/persona/gallery-riverside-skyline.jpg',
+      image: '/images/persona/gallery-riverside-skyline.webp',
       title: {
         zh: '江边黄昏',
         en: 'Riverside dusk',
@@ -164,7 +164,7 @@ export const profile = {
       },
     },
     {
-      image: '/images/persona/gallery-city-tower.jpg',
+      image: '/images/persona/gallery-city-tower.webp',
       title: {
         zh: '城市地标',
         en: 'City landmark',
@@ -175,7 +175,7 @@ export const profile = {
       },
     },
     {
-      image: '/images/persona/gallery-night-skyline.jpg',
+      image: '/images/persona/gallery-night-skyline.webp',
       title: {
         zh: '夜色双塔',
         en: 'Night skyline',
@@ -186,7 +186,7 @@ export const profile = {
       },
     },
     {
-      image: '/images/persona/gallery-field-profile.jpg',
+      image: '/images/persona/gallery-field-profile.webp',
       title: {
         zh: '田野侧影',
         en: 'Field profile',
@@ -197,7 +197,7 @@ export const profile = {
       },
     },
     {
-      image: '/images/persona/gallery-museum-smile.jpg',
+      image: '/images/persona/gallery-museum-smile.webp',
       title: {
         zh: '展馆笑脸',
         en: 'Museum smile',
@@ -208,7 +208,7 @@ export const profile = {
       },
     },
     {
-      image: '/images/persona/gallery-graduation.jpg',
+      image: '/images/persona/gallery-graduation.webp',
       title: {
         zh: '毕业时刻',
         en: 'Graduation moment',
@@ -219,7 +219,7 @@ export const profile = {
       },
     },
     {
-      image: '/images/persona/gallery-shadow-silhouette.jpg',
+      image: '/images/persona/gallery-shadow-silhouette.webp',
       title: {
         zh: '光影剪影',
         en: 'Shadow silhouette',
@@ -230,7 +230,7 @@ export const profile = {
       },
     },
     {
-      image: '/images/persona/gallery-sunlit-break.jpg',
+      image: '/images/persona/gallery-sunlit-break.webp',
       title: {
         zh: '阳光间隙',
         en: 'Sunlit break',

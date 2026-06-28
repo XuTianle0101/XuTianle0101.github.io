@@ -48,7 +48,7 @@ export const experiences: ExperienceItem[] = [
       },
     ],
     tech: ['vLLM', 'MLU', 'Python', 'CUDA', 'LLM Inference'],
-    image: '/images/organizations/cambricon.png',
+    image: '/images/organizations/cambricon.webp',
   },
   {
     id: 'migu-world-cup-vlm',
@@ -78,7 +78,7 @@ export const experiences: ExperienceItem[] = [
       },
     ],
     tech: ['Qwen3-VL-8B', 'vLLM', 'VLM', 'YOLO', 'Data Annotation'],
-    image: '/images/organizations/migu.png',
+    image: '/images/organizations/migu.webp',
   },
   {
     id: 'nanovision-ct-reconstruction',
@@ -108,7 +108,7 @@ export const experiences: ExperienceItem[] = [
       },
     ],
     tech: ['CT Reconstruction', 'FBP', 'FDK', 'CUDA', '3DGS', 'FistaNet'],
-    image: '/images/organizations/nanovision.png',
+    image: '/images/organizations/nanovision.webp',
   },
   {
     id: 'medical-device-genetic-optimization',
@@ -138,7 +138,7 @@ export const experiences: ExperienceItem[] = [
       },
     ],
     tech: ['Python', 'NSGA-II', 'Optimization', 'Mechanics', 'Medical Device Design'],
-    image: '/images/organizations/fudan.png',
+    image: '/images/organizations/fudan.webp',
   },
   {
     id: 'tencent-facial-rig',
@@ -168,6 +168,6 @@ export const experiences: ExperienceItem[] = [
       },
     ],
     tech: ['FacialRig', 'FEM', 'Implicit Network', 'Physics Simulation', 'Neural Networks'],
-    image: '/images/organizations/tencent.png',
+    image: '/images/organizations/tencent.webp',
   },
 ];
