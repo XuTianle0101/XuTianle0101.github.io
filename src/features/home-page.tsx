@@ -71,7 +71,7 @@ export function HomePage({ locale, rootMode = false }: HomePageProps) {
         <div className={sectionFrameClassName}>
           <SectionHeading
             eyebrow={copy.featuredWork}
-            title={locale === 'zh' ? '从研究问题到可运行系统' : 'From research questions to working systems'}
+            title={locale === 'zh' ? '工程技术扎实' : 'Strong Engineering Foundations'}
             action={{ label: copy.viewAll, href: localizedPath(locale, '/experience', rootMode) }}
           />
           <div className="grid gap-7 md:grid-cols-2">
@@ -86,7 +86,7 @@ export function HomePage({ locale, rootMode = false }: HomePageProps) {
         <div className={sectionFrameClassName}>
           <SectionHeading
             eyebrow={copy.featuredPapers}
-            title={locale === 'zh' ? '论文、预印本与研究记录' : 'Papers, preprints, and research notes'}
+            title={locale === 'zh' ? '学术思维敏捷' : 'Agile Academic Thinking'}
             action={{ label: copy.viewAll, href: localizedPath(locale, '/publications', rootMode) }}
           />
           {featuredPublications.map((publication) => (
@@ -99,7 +99,7 @@ export function HomePage({ locale, rootMode = false }: HomePageProps) {
         <div className={sectionFrameClassName}>
           <SectionHeading
             eyebrow={copy.latestWriting}
-            title={locale === 'zh' ? '把做过的事写清楚' : 'Writing down the work'}
+            title={locale === 'zh' ? '日志和思考' : 'Logs and Reflections'}
             action={{ label: copy.viewAll, href: localizedPath(locale, '/blog', rootMode) }}
           />
           <div className="grid gap-5 md:grid-cols-2">
@@ -116,7 +116,7 @@ export function HomePage({ locale, rootMode = false }: HomePageProps) {
 
       <section className="border-y border-line bg-cloud/86 py-20 dark:border-white/10 dark:bg-white/[0.03]">
         <div className={sectionFrameClassName}>
-          <SectionHeading eyebrow={copy.interests} title={locale === 'zh' ? '工作之外的线索' : 'Signals beyond work'} />
+          <SectionHeading eyebrow={copy.interests} title={locale === 'zh' ? '工作之外' : 'Beyond Work'} />
           <div className="grid gap-4 md:grid-cols-3">
             {interests.map((interest) => (
               <div key={text(interest.title, locale)} className="border border-line bg-white p-5 dark:border-white/10 dark:bg-white/[0.04]">
@@ -132,7 +132,7 @@ export function HomePage({ locale, rootMode = false }: HomePageProps) {
         <div className="pointer-events-none absolute -left-24 top-14 h-64 w-64 rounded-full bg-coral/20 blur-3xl" />
         <div className="pointer-events-none absolute -right-20 bottom-0 h-72 w-72 rounded-full bg-teal/20 blur-3xl" />
         <div className={`relative ${sectionFrameClassName}`}>
-          <SectionHeading eyebrow={locale === 'zh' ? '个人形象' : 'Personal Visuals'} title={locale === 'zh' ? '技术之外' : 'Beyond technology'} />
+          <SectionHeading eyebrow={locale === 'zh' ? '个人形象' : 'Personal Visuals'} title={locale === 'zh' ? '展示自我' : 'Showcasing Myself'} />
           <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
             {profile.visualGallery.map((photo) => (
               <figure

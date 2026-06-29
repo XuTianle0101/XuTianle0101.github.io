@@ -3,7 +3,7 @@ import type { LocalizedString } from '@/i18n';
 export const profile = {
   name: {
     zh: '徐天乐',
-    en: 'xutianle',
+    en: 'Tianle Xu',
   },
   headline: {
     zh: 'AI 算法 / 大模型推理引擎 / 多模态视觉 / 医学影像重建',
