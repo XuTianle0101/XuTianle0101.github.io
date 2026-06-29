@@ -1,0 +1,931 @@
+---
+title:
+  zh: "[Infra-1] 不同拓扑下总线带宽、算法带宽计算方法"
+  en: "[Infra-1] How to Compute Bus Bandwidth and Algorithm Bandwidth Across Topologies"
+description:
+  zh: "系统梳理链路带宽、注入带宽、对分带宽、algbw、busbw 及其在 PCIe、Ring、NVSwitch、Fat-tree 等拓扑中的计算与分析方法。"
+  en: "A practical guide to link bandwidth, injection bandwidth, bisection bandwidth, algbw, and busbw across PCIe, ring, NVSwitch, and fat-tree topologies."
+date: "2026-06-29"
+language: "bilingual"
+tags:
+  - Infra
+  - Topology
+  - NCCL
+  - vLLM
+  - Distributed Systems
+---
+
+在看 vLLM、NCCL/CCL、GPU 多卡通信性能时，最容易混淆的不是某一个公式，而是“大家口中的带宽到底是不是同一个东西”。
+
+有时候厂商文档说的是链路峰值，有时候 benchmark 打出来的是 `algbw`，有时候同事讨论的是 `busbw`，还有时候一条链路明明标着 64 GB/s，实际 AllReduce 却远远跑不到这个数字。问题通常不在某一个点，而在于：
+
+- 口径没有统一；
+- 拓扑没有搞清楚；
+- collective 的实际通信量和“逻辑数据量”不是一回事。
+
+这篇文章按两条线把这些概念串起来：
+
+- 第一条线：硬件拓扑带宽怎么看；
+- 第二条线：算法和集合通信带宽怎么算。
+
+目标不是罗列所有名词，而是建立一套可以反复复用的判断框架。以后再看性能曲线、日志、profile 或者 nccl-tests 结果时，可以快速定位：问题是在链路、在拓扑、在 collective 算法，还是在软件路径。
+
+## 1. 先建立最小前提：带宽到底在描述什么
+
+在讨论带宽之前，先统一两个基础事实。
+
+### 1.1 带宽一定要带口径
+
+任何一个“XX GB/s”的数字，如果没有上下文，信息是不完整的。至少要先问清楚四件事：
+
+- 是单向还是双向；
+- 是 raw signaling rate 还是 payload 有效带宽；
+- 是单链路、单设备，还是多链路聚合；
+- 是硬件峰值，还是 benchmark 实测。
+
+例如 `PCIe Gen5 x16 = 128 GB/s`，很多资料默认说的是双向聚合峰值；如果你在做单向 GPU-GPU P2P copy，真正更相关的是单向大约 64 GB/s 这个量级。
+
+### 1.2 大消息和小消息看到的不是同一个世界
+
+通信时间通常可以粗略写成：
+
+```text
+T ≈ latency + size / bandwidth
+```
+
+所以：
+
+- 小消息更容易被启动开销、同步、协议切换影响；
+- 大消息更容易暴露链路带宽、拓扑瓶颈、过订阅问题。
+
+这也是为什么分析通信性能时，不能只看一个数据点，而要看一整条随消息大小变化的曲线。
+
+## 2. 需要分清的六类带宽
+
+### 2.1 链路带宽：最底层的物理能力
+
+链路带宽指的是一条物理互联本身能提供的传输能力，例如：
+
+- PCIe x16；
+- NVLink；
+- IB / RoCE 网卡；
+- 芯片间专用直连链路。
+
+这是所有通信分析的底座，但它只是“单条路有多宽”，还没有回答“整个系统能不能用满”。
+
+以 PCIe 为例，PCIe 6.0 的官方规格给出 64.0 GT/s raw data rate，x16 配置最高可达 256.0 GB/s。这个 256 GB/s 通常按双向聚合理解，单向约一半。PCIe 6.0 还引入了 PAM4、FEC/CRC 和 Flit Mode，因此 raw data rate 和最终 payload 带宽不能直接画等号。[1]
+
+### 2.2 注入带宽：单个设备最多能往拓扑里打多少数据
+
+注入带宽描述的是一个 GPU 或 NIC 对外发送数据的总能力。
+
+例如某个 GPU 的 NVLink 总带宽是 900 GB/s，这个数字更接近“这张卡对外所有 NVLink 通道加起来最多能发多少”，而不是“任意两个 GPU 之间都能稳定达到 900 GB/s”。
+
+注入带宽更适合回答这样的问题：
+
+- 单个设备是否有足够对外通信能力；
+- 多个通信流是否会争抢同一个 endpoint 的出口；
+- 一个 collective 是否理论上可能把某张卡打满。
+
+NVIDIA 官方公开资料中，第四代 NVLink 为每 GPU 900 GB/s，第五代 1,800 GB/s，第六代 3,600 GB/s，同时 NVLink Switch 还会给出 GPU-to-GPU 与 aggregate bandwidth 等不同口径的数字。[2]
+
+### 2.3 聚合带宽：把很多条链路加起来
+
+聚合带宽是多个链路能力的总和。
+
+例如 8 个 GPU，每个 GPU 注入带宽 900 GB/s，那么总注入带宽可以写成：
+
+```text
+8 × 900 GB/s = 7.2 TB/s
+```
+
+这个数字本身没错，但它非常容易被误读。它只能说明“整个系统一共拥有这么多对外通信能力”，不能说明：
+
+- 任意一个 GPU 对另一个 GPU 都能跑满；
+- 任意一种 collective 都能达到这个值；
+- 任意一种业务负载都能均匀用满所有链路。
+
+所以聚合带宽更像“天花板总和”，不是“单次任务保证值”。
+
+### 2.4 对分带宽：判断拓扑是否容易堵的关键指标
+
+对分带宽（bisection bandwidth）是分析拓扑时非常关键的概念。
+
+做法很简单：把系统切成大小尽量相近的两半，跨越这个切分面的总链路带宽，就是对分带宽。
+
+例如 8 卡 ring，如果切成 4 卡 + 4 卡，通常只会切断两条边，所以：
+
+```text
+bisection bandwidth ≈ 2 × 单链路带宽
+```
+
+这意味着 ring 的对分带宽不会随着节点数线性增长，扩展性天然受限。而在 NVSwitch 或 fully connected 这类结构里，对分带宽就会明显更高。
+
+### 2.5 算法带宽：benchmark 里最常看到的 algbw
+
+`algbw` 是 algorithm bandwidth 的缩写，定义最直接：
+
+```text
+algbw = 逻辑数据量 / 通信耗时
+```
+
+例如一次 AllReduce 逻辑数据量是 1 GB，总耗时 10 ms，那么：
+
+```text
+algbw = 1 GB / 0.01 s = 100 GB/s
+```
+
+它回答的问题是：“从用户视角看，这个 collective 完成得有多快？”  
+NVIDIA 的 `nccl-tests` 也明确使用 `S / t` 作为 algorithm bandwidth 的定义。[3]
+
+### 2.6 总线带宽：更接近底层链路利用率的 busbw
+
+`busbw` 是在 `algbw` 基础上进一步修正后的指标，目的是让结果更接近“底层硬件实际搬了多少数据”。
+
+原因在于，大多数 collective 的逻辑数据量和链路实际搬运量并不相等。
+
+以 AllReduce 为例，逻辑上你看到的是“每张卡对一份长度为 `S` 的数据做规约”；但在常见 Ring AllReduce 里，底层通常会经过：
+
+- ReduceScatter；
+- AllGather。
+
+所以每张卡实际通信量大约是：
+
+```text
+2 × (n - 1) / n × S
+```
+
+因此 `nccl-tests` 会用不同的修正系数把 `algbw` 转成 `busbw`。其中：
+
+- AllReduce：`2 × (n - 1) / n`
+- ReduceScatter / AllGather / AlltoAll：`(n - 1) / n`
+- Broadcast / Reduce：`1`
+
+这个定义也来自 `nccl-tests` 的性能文档。[3]
+
+## 3. 三个最常用的基础公式
+
+### 3.1 点对点带宽
+
+最基础的公式就是：
+
+```text
+BW = message_size / time
+```
+
+例如发送 4 GB 数据，耗时 20 ms：
+
+```text
+BW = 4 GB / 0.02 s = 200 GB/s
+```
+
+如果是 A→B 和 B→A 同时跑，并且报告的是双向聚合带宽，那么就是：
+
+```text
+BW_bidirectional = 2 × message_size / time
+```
+
+但一定要注意工具口径。有些工具默认给单向 payload bandwidth，有些给双向聚合，横向比较前必须先统一。
+
+### 3.2 PCIe 理论带宽
+
+对 PCIe Gen1 到 Gen5，常见近似写法是：
+
+```text
+单向带宽 ≈ GT/s × 编码效率 × lane 数 / 8
+```
+
+例如 PCIe Gen5 x16：
+
+```text
+raw rate = 32 GT/s
+encoding efficiency ≈ 128 / 130
+lanes = 16
+
+单向带宽 ≈ 32 × 128/130 × 16 / 8
+         ≈ 63 GB/s
+
+双向聚合 ≈ 126 GB/s
+```
+
+所以如果资料写 `PCIe Gen5 x16 = 128 GB/s`，大概率说的是双向聚合峰值；实际做单向拷贝时，更应该用约 64 GB/s 这个单向量级来判断。
+
+### 3.3 多链路聚合带宽
+
+如果一个设备有 `k` 条相同链路，每条单向带宽是 `B`，理论注入带宽就是：
+
+```text
+k × B
+```
+
+但这个结果能否变成实测值，还要看五件事：
+
+1. 拓扑是否允许并行使用多条路径；
+2. 路由是否均衡；
+3. 通信模式是否足够分散；
+4. 软件栈是否支持多 rail / 多 channel；
+5. endpoint 本身是否有足够 DMA、copy engine 或网络注入能力。
+
+## 4. 不同拓扑下，带宽该怎么算
+
+这一部分不追求形式化证明，而是给出最实用的判断方法。
+
+### 4.1 两卡直连：最容易理解的情况
+
+拓扑：
+
+```text
+GPU0   <---- link B ---->  GPU1 
+```
+
+如果是点对点单向通信，理论上限就是：
+
+```text
+BW = B
+```
+
+如果两边同时双向通信：
+
+```text
+BW_bidirectional = 2B
+```
+
+两卡 AllReduce 时，`n = 2`，AllReduce 的 `busbw` 修正系数为：
+
+```text
+2 × (2 - 1) / 2 = 1
+```
+
+所以：
+
+```text
+busbw = algbw
+```
+
+这也是为什么两卡 AllReduce 下，`algbw` 和 `busbw` 常常比较接近。
+
+### 4.2 PCIe Root / CPU Root：路径最窄处决定上限
+
+典型结构：
+
+```text
+GPU0 \
+GPU1  \
+GPU2   ---- PCIe Switch / Root Complex ---- CPU
+GPU3  /
+```
+
+或者多 socket 情况：
+
+```text
+GPU0 GPU1 -- PCIe Root -- CPU0 -- UPI/QPI -- CPU1 -- PCIe Root -- GPU2 GPU3
+```
+
+这个场景下最关键的不是“每张卡是什么规格”，而是：
+
+- 是否在同一个 PCIe switch 下；
+- 是否跨 CPU socket；
+- 是否支持 P2P；
+- 是否需要走 host memory bounce；
+- uplink 是否过订阅。
+
+因此带宽上限更适合写成一条路径上的最小值。
+
+如果 GPU0 与 GPU1 在同一个 PCIe switch 下且支持 P2P：
+
+```text
+GPU0 → GPU1 上限 ≈ min(GPU0 PCIe 带宽, GPU1 PCIe 带宽, switch 转发能力)
+```
+
+如果 GPU0 到 GPU3 需要跨 socket：
+
+```text
+GPU0 → GPU3 上限 ≈ min(
+    GPU0 PCIe 带宽,
+    CPU0 Root 带宽,
+    CPU0-CPU1 互联带宽,
+    CPU1 Root 带宽,
+    GPU3 PCIe 带宽
+)
+```
+
+一句话概括：PCIe 拓扑里，性能往往不是看端点有多强，而是看整条路径上最窄的那一段。
+
+### 4.3 PCIe Switch Tree：最常见的过订阅来源
+
+拓扑：
+
+```text
+             CPU
+              |
+         PCIe Switch
+        /    |    |    \
+      GPU0 GPU1 GPU2 GPU3
+```
+
+如果 switch 内部是非阻塞的，GPU-GPU P2P 可能比较接近单卡 PCIe 上限。
+
+但如果上行只有一个 `x16`：
+
+```text
+             CPU
+              |
+         uplink x16
+              |
+         PCIe Switch
+        /    |    |    \
+      GPU0 GPU1 GPU2 GPU3
+```
+
+那么多个 GPU 同时访问 CPU 或跨上行链路时，会共享这一条 uplink。
+
+假设每个 GPU 都是 PCIe Gen5 x16，单向约 64 GB/s，则：
+
+```text
+4 卡总下行注入 = 4 × 64 = 256 GB/s
+CPU uplink 单向 ≈ 64 GB/s
+```
+
+于是 GPU 集群到 CPU 的总上限仍然只有大约 64 GB/s 单向。
+
+过订阅比可以写成：
+
+```text
+oversubscription ratio = 下行总带宽 / 上行总带宽
+```
+
+在这个例子里：
+
+```text
+oversubscription = 256 / 64 = 4:1
+```
+
+所以当 4 张卡同时上行时，平均每张卡理论上只能分到约 16 GB/s。这种现象很常见，不是卡坏了，而是拓扑决定的。
+
+### 4.4 Ring：实现简单，但对分带宽低
+
+拓扑：
+
+```text
+GPU0 -- GPU1 -- GPU2 -- GPU3
+ |                       |
+ +-----------------------+
+```
+
+假设每条边单向带宽是 `B`。
+
+环的单向总链路带宽可以粗略写成：
+
+```text
+N × B
+```
+
+如果按双向都计入，则是：
+
+```text
+2N × B
+```
+
+但 Ring 的问题在于对分带宽不随 `N` 一起增长。通常切成两半时，只会切断两条边，因此：
+
+```text
+bisection bandwidth ≈ 2B
+```
+
+这会直接影响大规模 collective 的扩展性。
+
+Ring AllReduce 的总通信量通常近似为：
+
+```text
+2 × (n - 1) / n × S
+```
+
+因此理论时间可近似写成：
+
+```text
+T ≈ [2 × (n - 1) / n × S] / B
+```
+
+这个式子非常有用，因为它直接说明：
+
+- `n` 越大，系数越接近 2；
+- 一次逻辑上的 AllReduce，不是“只传一遍数据”；
+- `busbw` 比 `algbw` 更接近底层真实链路负载。
+
+### 4.5 Mesh：比 ring 更能扩展，但仍然要付出多跳代价
+
+二维 mesh 示例：
+
+```text
+GPU00 -- GPU01 -- GPU02 -- GPU03
+  |       |       |       |
+GPU10 -- GPU11 -- GPU12 -- GPU13
+```
+
+如果是 `R × C` 的 mesh，单链路带宽为 `B`，那么：
+
+- 沿列方向切，对分带宽约为 `R × B`；
+- 沿行方向切，对分带宽约为 `C × B`。
+
+因此可以粗略写成：
+
+```text
+bisection bandwidth ≈ min(R, C) × B
+```
+
+这说明 mesh 比 ring 更容易随着规模变大而提升对分能力。但它依然不是全连接，远距离通信需要多跳，因此点对点耗时通常还会带一个 hop 项：
+
+```text
+T ≈ latency_per_hop × hops + S / bottleneck_bandwidth
+```
+
+大消息更像在看带宽，小消息更像在看 hop latency。
+
+### 4.6 Torus：把 mesh 的边界连起来
+
+Torus 可以理解为 mesh 的“首尾相连”版本。
+
+它相对 mesh 的主要改进有三点：
+
+- 平均 hop 数更低；
+- 对分带宽更高；
+- 更容易做负载均衡。
+
+二维 torus 的对分带宽常用近似是：
+
+```text
+bisection bandwidth ≈ 2 × min(R, C) × B
+```
+
+因此在规则大规模通信中，torus 往往比普通 mesh 更友好。
+
+### 4.7 Fully Connected：通信视角最理想，成本也最高
+
+全连接拓扑中，任意两个节点都有直连链路。
+
+如果一共有 `N` 个节点，每条链路带宽是 `B`，那么单节点注入带宽为：
+
+```text
+(N - 1) × B
+```
+
+链路总数为：
+
+```text
+N × (N - 1) / 2
+```
+
+切成两半时，跨分区链路数为：
+
+```text
+(N / 2) × (N / 2) = N^2 / 4
+```
+
+所以对分带宽近似为：
+
+```text
+N^2 / 4 × B
+```
+
+这个拓扑对 All-to-All、MoE expert parallel、复杂 tensor parallel 都非常友好，但成本也会随着 `N^2` 上升，因此大规模系统里很难直接这么做。
+
+### 4.8 Switch / Crossbar / NVSwitch：工程上更常见的高带宽答案
+
+这类拓扑的核心思想是：不是让每对 GPU 都有一条直连，而是通过一个高带宽、尽可能 non-blocking 的交换结构把它们连起来。
+
+可以把它简化理解为：
+
+- 每张卡有自己的注入带宽 `B`；
+- switch fabric 尽量让任意两张卡之间都接近“像直连一样通信”；
+- 对分带宽尽量接近 full bisection。
+
+如果是理想的 non-blocking fabric，那么：
+
+```text
+per-GPU injection bandwidth = B
+aggregate bandwidth ≈ N × B
+bisection bandwidth ≈ N/2 × B
+```
+
+这类拓扑对 AllReduce、AllGather、All-to-All 都明显更友好，也是大模型训练和高并发推理中最常见的高性能机内互联方案之一。[2]
+
+### 4.9 Fat-tree：跨节点网络里最重要的结构之一
+
+Fat-tree 常见于 IB / RoCE 网络。
+
+一个直观理解方式是：
+
+- 下层 leaf 交换机连计算节点；
+- 上层 spine 交换机负责不同 leaf 之间互通；
+- 是否“胖”起来，本质看上行带宽够不够。
+
+如果上行总带宽等于下行总带宽，则可以近似看成非阻塞：
+
+```text
+oversubscription = 1:1
+```
+
+如果上行明显少于下行，就会出现过订阅。  
+例如 4 个下行端口，每个 400 Gb/s，但只有 2 个 400 Gb/s 上行：
+
+```text
+downlink = 4 × 400 = 1600 Gb/s
+uplink = 2 × 400 = 800 Gb/s
+oversubscription = 2:1
+```
+
+这种情况下，跨 leaf 通信时平均可用带宽就会下降。
+
+### 4.10 分层拓扑：真实集群里最常见的情况
+
+大模型训练和推理里，更常见的是分层拓扑：
+
+```text
+机内：NVLink / XGMI / 专用芯片互联
+机间：IB / RoCE
+机架间：更高层交换网络
+```
+
+例如：
+
+```text
+单机 8 卡：机内 NVLink 900 GB/s 级别
+跨机：400 Gb/s 或 800 Gb/s IB
+```
+
+这时瓶颈通常不是机内，而是跨节点。
+
+分层 AllReduce 的粗略时间分解通常可以写成：
+
+```text
+T_total ≈ T_intra + T_inter + T_intra
+```
+
+如果跨机网络远慢于机内互联，那么总时间基本由 `T_inter` 决定。  
+这也是为什么实际部署里，通常会尽量把 tensor parallel 放在机内，把 data parallel 或 pipeline parallel 放到跨节点。
+
+## 5. 集合通信里，algbw 和 busbw 到底怎么换算
+
+这一部分是最常用的复习区。
+
+### 5.1 AllReduce
+
+语义是：每张卡都有一份长度为 `S` 的数据，最后每张卡都拿到规约后的完整结果。
+
+算法带宽：
+
+```text
+algbw = S / T
+```
+
+总线带宽：
+
+```text
+busbw = algbw × 2 × (n - 1) / n
+```
+
+例如 8 卡、4 GB、20 ms：
+
+```text
+algbw = 4 / 0.02 = 200 GB/s
+busbw = 200 × 2 × 7 / 8 = 350 GB/s
+```
+
+解释方式很简单：
+
+- `algbw` 从用户视角看是“4 GB 的 AllReduce 多快做完”；
+- `busbw` 从链路视角看是“底层为了做完这件事，大概等效搬了多少数据”。
+
+### 5.2 ReduceScatter
+
+语义是：先做 reduce，再把结果切成 `n` 份，每张卡拿其中一份。
+
+```text
+busbw = algbw × (n - 1) / n
+```
+
+这是很多分片优化器、ZeRO、FSDP、分片规约路径里非常常见的操作。
+
+### 5.3 AllGather
+
+语义是：每张卡各有一段数据，最终每张卡都收集到所有卡的数据拼接结果。
+
+```text
+busbw = algbw × (n - 1) / n
+```
+
+它和 ReduceScatter 在通信量上是同一量级，只是一个偏“收集”，一个偏“规约后分发”。
+
+### 5.4 Broadcast 与 Reduce
+
+Broadcast 是一个 root 把数据发给其他所有 rank；Reduce 则是所有 rank 把数据规约到 root。
+
+这两类操作在 `nccl-tests` 的修正里都按 1 处理：
+
+```text
+busbw = algbw
+```
+
+直觉上也很好理解：瓶颈通常集中在 root 的出带宽或入带宽，而不是所有节点平均分摊。
+
+### 5.5 All-to-All
+
+All-to-All 的语义是：每个 rank 都给其他每个 rank 发送不同的数据块。
+
+它的 `busbw` 修正系数通常写成：
+
+```text
+busbw = algbw × (n - 1) / n
+```
+
+但它比公式更重要的，是拓扑敏感性：
+
+- 它对 switch fabric 和路由压力非常敏感；
+- 它最容易暴露过订阅和对分带宽不足；
+- 在 MoE expert parallel 里经常成为主要瓶颈。
+
+## 6. 一张表记住常见 collective 的换算关系
+
+| Collective    | algbw | busbw 修正系数 | busbw |
+| ------------- | ----- | --------------- | ----- |
+| Send/Recv     | `S/T` | `1` | `algbw` |
+| AllReduce     | `S/T` | `2 × (n - 1) / n` | `algbw × 2 × (n - 1) / n` |
+| ReduceScatter | `S/T` | `(n - 1) / n` | `algbw × (n - 1) / n` |
+| AllGather     | `S/T` | `(n - 1) / n` | `algbw × (n - 1) / n` |
+| Broadcast     | `S/T` | `1` | `algbw` |
+| Reduce        | `S/T` | `1` | `algbw` |
+| All-to-All    | `S/T` | `(n - 1) / n` | `algbw × (n - 1) / n` |
+
+如果只想记住最重要的一件事，那就是：
+
+> `algbw` 描述的是“任务完成速度”，`busbw` 描述的是“链路利用程度”。
+
+## 7. 为什么 AllReduce 的 busbw 往往比 algbw 大
+
+这是很多人第一次看 `nccl-tests` 都会困惑的问题。
+
+以 8 卡 AllReduce 为例。  
+从逻辑上看，每张卡都在处理 1 GB 数据，于是：
+
+```text
+algbw = 1 GB / time
+```
+
+但从底层实现看，Ring AllReduce 不是“一次传完 1 GB 就结束”，而是通常要经历：
+
+- ReduceScatter；
+- AllGather。
+
+每张卡实际搬运的数据量大约是：
+
+```text
+2 × (n - 1) / n × S
+```
+
+8 卡时这个系数是：
+
+```text
+2 × 7 / 8 = 1.75
+```
+
+所以虽然用户感觉是“做了 1 GB AllReduce”，但硬件链路更像是承担了大约 1.75 GB 的搬运量。于是自然会得到：
+
+```text
+busbw = algbw × 1.75
+```
+
+这个修正并不是“虚高”，而是在把逻辑吞吐换算成更接近真实链路负载的指标。
+
+## 8. 不同并行和业务场景，最该关注哪类带宽
+
+### 8.1 Tensor Parallel
+
+典型通信包括：
+
+- AllReduce；
+- AllGather；
+- ReduceScatter。
+
+这类并行非常依赖机内高速互联。  
+如果 TP group 跨了 PCIe socket、慢速互联，甚至跨节点，性能往往会明显下滑。
+
+### 8.2 Pipeline Parallel
+
+更典型的是 stage 间的 point-to-point activation 传输。
+
+它不像 TP 那样高频 collective，但对相邻 stage 的链路延迟与带宽都敏感。部署上应优先把相邻 stage 放在拓扑距离近的设备上。
+
+### 8.3 MoE / Expert Parallel
+
+这类场景最典型的是 All-to-All：
+
+- dispatch token；
+- combine result；
+- 容易把交换网络打满。
+
+所以 MoE 往往最怕过订阅网络、低对分带宽拓扑，以及跨节点的复杂路由。
+
+### 8.4 vLLM 推理中的 KV Cache / Prefill / Decode
+
+推理场景下，通信不一定表现为经典 AllReduce，但仍然会受到通信粒度和拓扑影响。
+
+如果某次版本升级后高并发吞吐下降，优先检查：
+
+1. 通信次数是否变多；
+2. 单次消息是否变小；
+3. 是否新增了同步点；
+4. 是否改变了 rank 到 device 的映射；
+5. 是否从大块连续传输变成了小块分片传输。
+
+因为一旦从“大包少次”变成“小包多次”，性能瓶颈就很容易从带宽切换成 latency 和调度开销。
+
+## 9. 两个最值得背下来的例子
+
+### 9.1 8 卡 Ring AllReduce
+
+假设：
+
+- 8 张卡；
+- 近似 ring；
+- 每条有效链路带宽 `B = 200 GB/s`；
+- AllReduce 数据量 `S = 4 GB`。
+
+AllReduce 系数：
+
+```text
+2 × (n - 1) / n = 2 × 7 / 8 = 1.75
+```
+
+理论时间近似为：
+
+```text
+T = S × 1.75 / B
+  = 4 × 1.75 / 200
+  = 0.035 s
+  = 35 ms
+```
+
+于是：
+
+```text
+algbw = 4 / 0.035 ≈ 114.3 GB/s
+busbw = 114.3 × 1.75 ≈ 200 GB/s
+```
+
+这个例子很好，因为它说明了：`busbw` 的确可以反推出底层链路大概被利用到了什么程度。
+
+### 9.2 PCIe Switch 的过订阅
+
+假设 4 张 GPU 都是 PCIe Gen5 x16，单向理论约 64 GB/s。
+
+拓扑如下：
+
+```text
+GPU0 \
+GPU1  \
+GPU2   ---- PCIe Switch ---- CPU
+GPU3  /
+```
+
+如果 GPU0 → GPU1 走 P2P，理论上限大约还是 64 GB/s 单向。
+
+但如果 4 张卡同时往 CPU 传数据，而 switch 到 CPU 的 uplink 只有一个 `x16`，那么：
+
+```text
+总上行上限 ≈ 64 GB/s
+平均每卡 ≈ 16 GB/s
+```
+
+所以你完全可能看到这种现象：
+
+```text
+单卡 copy：60 GB/s
+四卡同时 copy：每卡 15 GB/s
+```
+
+这不是异常，而是拓扑过订阅带来的结果。
+
+## 10. 真正做性能分析时，按这个顺序排查
+
+如果你手里拿到一张通信 benchmark 曲线，或者某个服务的 profile，建议按这个顺序看。
+
+### 第一步：先问它到底是哪种带宽
+
+先明确：
+
+- raw 还是 payload；
+- 单向还是双向；
+- 单链路还是 aggregate；
+- `algbw` 还是 `busbw`；
+- 理论值还是实测值。
+
+口径没统一，后面所有比较都可能失真。
+
+### 第二步：看通信模式
+
+要搞清楚你分析的是：
+
+- P2P；
+- AllReduce；
+- AllGather；
+- ReduceScatter；
+- All-to-All；
+- Broadcast / Reduce。
+
+不同 collective 的 busbw 修正系数不同，`algbw` 不能直接横向比。
+
+### 第三步：看拓扑瓶颈
+
+重点问五件事：
+
+- 是否跨 switch；
+- 是否跨 socket / NUMA；
+- 是否跨节点；
+- 是否有过订阅；
+- 对分带宽是否太低。
+
+### 第四步：看消息大小分布
+
+常见判断方式：
+
+- 小消息低带宽：优先怀疑 latency、同步、协议切换；
+- 大消息低带宽：优先怀疑链路、拓扑、过订阅；
+- 某些区间突然掉点：可能是 buffer、算法或协议路径切换。
+
+### 第五步：看软件路径
+
+最后再去看：
+
+- 通信次数是否异常增多；
+- 是否出现 host staging；
+- 是否存在 fallback path；
+- 是否有额外 copy；
+- 是否有 stream 竞争；
+- 是否真正做到了 compute / communication overlap。
+
+很多“看起来像硬件不行”的问题，最后其实是软件路径变化导致的。
+
+## 11. 总结
+
+如果把这篇文章再压缩成三层结构，那就是：
+
+### 第一层：硬件物理带宽
+
+这是链路本身的能力，例如：
+
+- PCIe；
+- NVLink；
+- IB / RoCE；
+- GPU 专用互联。
+
+### 第二层：拓扑可用带宽
+
+这是系统层面真正能提供的通信能力，重点看：
+
+- 注入带宽；
+- 对分带宽；
+- 过订阅；
+- 是否多跳；
+- 是否 non-blocking。
+
+### 第三层：算法观测带宽
+
+这是 benchmark 和业务里真正观察到的结果：
+
+```text
+algbw = S / T
+busbw = algbw × collective 修正系数
+```
+
+最常用的几个式子是：
+
+```text
+AllReduce    busbw = algbw × 2 × (n - 1) / n
+AllGather    busbw = algbw × (n - 1) / n
+ReduceScatter busbw = algbw × (n - 1) / n
+AlltoAll     busbw = algbw × (n - 1) / n
+Broadcast    busbw = algbw
+Reduce       busbw = algbw
+```
+
+真正做调优时，可以把它们分别理解为：
+
+- `algbw`：这件事从用户视角完成得有多快；
+- `busbw`：底层互联被利用到了什么程度。
+
+如果 `busbw` 明显低于拓扑理论上限，下一步通常就要去查：
+
+- 拓扑是否跨 NUMA / 跨节点；
+- rank 映射是否合理；
+- collective 算法是否匹配；
+- 消息是否过小、次数是否过多；
+- 是否出现额外同步、host copy 或 fallback。
+
+把这套框架记住之后，再看任何多卡通信问题，基本都能先把问题归到正确的层上，再决定往哪一层继续深挖。
+
+## 参考资料
+
+1. PCI-SIG, PCI Express 6.0 Specification: https://pcisig.com/pci-express-6.0-specification
+2. NVIDIA, NVLink & NVLink Switch: https://www.nvidia.com/en-us/data-center/nvlink/
+3. NVIDIA `nccl-tests`, PERFORMANCE.md: https://github.com/NVIDIA/nccl-tests/blob/master/doc/PERFORMANCE.md
+4. NVIDIA NCCL User Guide, Collective Operations: https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/usage/collectives.html
