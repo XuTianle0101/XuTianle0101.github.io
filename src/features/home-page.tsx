@@ -121,7 +121,7 @@ export function HomePage({ locale, rootMode = false }: HomePageProps) {
         </div>
       </section>
 
-      <section className="relative overflow-hidden bg-[#fff4df] px-5 py-20 dark:bg-[#10202a] md:px-8">
+      <section className="relative hidden overflow-hidden bg-[#fff4df] px-5 py-20 dark:bg-[#10202a] md:block md:px-8">
         <div className="pointer-events-none absolute -left-24 top-14 h-64 w-64 rounded-full bg-coral/20 blur-3xl" />
         <div className="pointer-events-none absolute -right-20 bottom-0 h-72 w-72 rounded-full bg-teal/20 blur-3xl" />
         <div className="relative mx-auto max-w-7xl">
