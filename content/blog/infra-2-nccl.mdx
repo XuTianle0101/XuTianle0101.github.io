@@ -1,0 +1,657 @@
+---
+title:
+  zh: "[Infra-2] NCCL"
+  en: "[Infra-2] NCCL"
+description:
+  zh: "以多卡训练和大模型推理为背景，系统梳理 NCCL 的位置、核心概念、常见 collective、单机与多机通信路径，以及性能调优和排查思路。"
+  en: "A first-person walkthrough of NCCL: its role in distributed GPU systems, common collectives, topology-aware communication, multi-node paths, and practical debugging."
+date: "2026-06-30"
+language: "zh"
+tags:
+  - Infra
+  - NCCL
+  - Distributed Systems
+  - vLLM
+  - GPU
+---
+
+我一开始看 NCCL，并不是因为我想从零写一个通信库，而是因为多卡训练和大模型推理里很多性能问题，最后都会绕回同一个问题：卡和卡之间到底是怎么交换 tensor 的？
+
+在单卡上，问题通常还比较直观。模型参数、activation、梯度、KV cache 大多都在一张卡里流动，瓶颈更多来自算子、显存、调度或者 batch 组织。但一旦进入多卡、多机，事情就变了。每一张卡只负责一部分计算，算完以后必须把结果同步、聚合、拼接或者重新分发。这个时候，通信就不再是背景音，而是系统性能的一部分。
+
+NCCL 就是在这个位置出现的。
+
+我现在更愿意把它理解成：NVIDIA GPU 集群里真正负责搬 tensor 的高速通信引擎。上层框架可以是 PyTorch、Megatron、vLLM 或 TensorRT-LLM；并行方式可以是 data parallel、tensor parallel、pipeline parallel 或 expert parallel；但只要底层是 NVIDIA GPU，并且涉及多卡 collective，NCCL 往往就在通信路径上。
+
+## 1. NCCL 在系统里到底是什么
+
+NCCL 的全称是 NVIDIA Collective Communications Library，读作 Nickel。它不是训练框架，也不是任务调度器，而是一个面向多 GPU、多节点 GPU 的 collective communication library。
+
+它提供的常见通信原语包括：
+
+- `AllReduce`
+- `Broadcast`
+- `Reduce`
+- `AllGather`
+- `ReduceScatter`
+- `AllToAll`
+- `Gather / Scatter`
+- `Send / Recv`
+
+如果把一个多卡系统拆成几层，我会这样放置 NCCL：
+
+```text
+应用层:
+  PyTorch / vLLM / Megatron / TensorRT-LLM
+
+并行策略层:
+  Data Parallel / Tensor Parallel / Pipeline Parallel / Expert Parallel
+
+分布式通信 API:
+  torch.distributed / ProcessGroup
+
+通信库:
+  NCCL / CNCL / RCCL / oneCCL
+
+硬件互联:
+  NVLink / NVSwitch / PCIe / InfiniBand / RoCE / Ethernet
+```
+
+NCCL 位于分布式通信 API 和硬件互联之间。上层写的是：
+
+```python
+dist.all_reduce(tensor)
+```
+
+底层真正发生的可能是：
+
+```text
+GPU0 -> GPU1 -> GPU2 -> ...
+NIC0 -> switch -> NIC1
+```
+
+所以我看 NCCL 时，关注点不是“这个库有什么 API”这么简单，而是它怎样把一个高层 collective 调用，映射到底层拓扑、链路、网卡和通信算法上。
+
+## 2. 为什么深度学习需要 NCCL
+
+最典型的例子是数据并行训练。
+
+假设我有 8 张 GPU，每张卡处理不同的 mini-batch。反向传播结束后，每张卡都会得到一份梯度：
+
+```text
+GPU0: grad_0
+GPU1: grad_1
+GPU2: grad_2
+...
+GPU7: grad_7
+```
+
+为了让 8 张卡上的模型参数保持一致，我需要把这些梯度求和或求平均：
+
+```text
+avg_grad = (grad_0 + grad_1 + ... + grad_7) / 8
+```
+
+然后每张卡都拿到同一份 `avg_grad`，再各自更新参数。这个过程通常就是 `AllReduce`。
+
+在大模型推理里，通信同样绕不开。比如 tensor parallel size 等于 4 时，一个线性层的权重可能被切成 4 份：
+
+```text
+完整矩阵 W 被切成:
+GPU0: W0
+GPU1: W1
+GPU2: W2
+GPU3: W3
+```
+
+每张卡只计算一部分输出：
+
+```text
+GPU0: y0 = xW0
+GPU1: y1 = xW1
+GPU2: y2 = xW2
+GPU3: y3 = xW3
+```
+
+下一步就要通过 `AllGather`、`AllReduce` 或 `ReduceScatter` 把结果拼起来、加起来，或者继续分片传递下去。
+
+这也是为什么在 vLLM 这类推理框架里，NCCL/CNCL 这类通信库的表现会直接影响：
+
+- tensor parallel 的扩展效率；
+- prefill 和 decode 的延迟；
+- 高并发吞吐；
+- P99 latency 和 ITL；
+- 多机部署时的跨节点性能。
+
+如果每一层 forward 都要等一次通信，那么通信延迟就会直接进入单 token latency。模型越大、并行越细、跨节点比例越高，这件事就越明显。
+
+## 3. 我理解 NCCL 时最先抓住的四个概念
+
+### 3.1 Rank
+
+`rank` 可以理解成分布式系统里的进程编号。通常一个 rank 绑定一张 GPU。
+
+比如双机 16 卡：
+
+```text
+Node0:
+  GPU0 -> rank 0
+  GPU1 -> rank 1
+  ...
+  GPU7 -> rank 7
+
+Node1:
+  GPU0 -> rank 8
+  GPU1 -> rank 9
+  ...
+  GPU7 -> rank 15
+```
+
+很多分布式 bug 的第一步，其实就是把 rank、local rank、device id 的关系理清楚。
+
+### 3.2 World Size
+
+`world_size` 表示总 rank 数。
+
+双机 16 卡就是：
+
+```text
+world_size = 16
+```
+
+如果我以为系统里有 16 个 rank，但实际上某台机器只启动了 7 个 worker，那后面初始化或者 collective 很可能会卡住。
+
+### 3.3 Local Rank
+
+`local_rank` 是当前机器内部的 GPU 编号。
+
+例如第二台机器上的第 3 张卡：
+
+```text
+global rank = 10
+local rank = 2
+```
+
+这个概念在写启动脚本和绑定设备时很关键。很多时候报错不是通信算法错了，而是 rank 映射和物理设备映射不一致。
+
+### 3.4 Communicator
+
+NCCL 会为一组参与通信的 rank 建立 communicator。我会把它理解成这批 GPU 之间的通信上下文。
+
+后面的 `AllReduce`、`AllGather`、`ReduceScatter` 等操作，都在这个 communicator 上发生。
+
+## 4. 常见 collective：我怎么记它们
+
+NCCL 里有很多 collective，但日常分析训练和推理性能时，我最常遇到的是下面几个。
+
+### 4.1 AllReduce：所有人贡献，所有人拿结果
+
+`AllReduce` 是我最先需要掌握的 collective。它的语义很简单：每个 rank 提供一份输入，所有输入做规约，然后每个 rank 都拿到同一份结果。
+
+例如 4 张卡：
+
+```text
+GPU0: [1, 2]
+GPU1: [3, 4]
+GPU2: [5, 6]
+GPU3: [7, 8]
+```
+
+做 sum allreduce 后，每张卡都得到：
+
+```text
+[16, 20]
+```
+
+在 DDP 训练里，它常用于同步梯度。在 tensor parallel 里，它常用于合并分片计算结果。
+
+### 4.2 Broadcast：一个人发，所有人收
+
+`Broadcast` 是从一个 root rank 把数据复制给所有 rank。
+
+```text
+GPU0 有参数 W
+GPU1 没有
+GPU2 没有
+GPU3 没有
+
+Broadcast 后:
+GPU0: W
+GPU1: W
+GPU2: W
+GPU3: W
+```
+
+它适合初始化模型参数、同步配置，或者从主 rank 分发状态。
+
+### 4.3 Reduce：所有人贡献，一个人拿结果
+
+`Reduce` 和 `AllReduce` 很像，区别是只有 root rank 拿到规约结果。
+
+```text
+AllReduce: 所有 rank 都拿到结果
+Reduce: 只有 root rank 拿到结果
+```
+
+如果只是统计某个全局指标，或者只需要主进程汇总结果，`Reduce` 就更贴近语义。
+
+### 4.4 AllGather：每个人一段，所有人拿全集
+
+`AllGather` 是把每个 rank 的数据收集起来，然后让每个 rank 都拿到完整拼接结果。
+
+```text
+GPU0: A
+GPU1: B
+GPU2: C
+GPU3: D
+
+AllGather 后:
+GPU0: [A, B, C, D]
+GPU1: [A, B, C, D]
+GPU2: [A, B, C, D]
+GPU3: [A, B, C, D]
+```
+
+在 tensor parallel 里，这个操作非常常见。例如列并行线性层之后，每张卡拿到一部分 hidden states，下一步可能就需要拼回完整 hidden states。
+
+### 4.5 ReduceScatter：先规约，再分片
+
+`ReduceScatter` 可以理解成：
+
+```text
+先 Reduce，再 Scatter
+```
+
+它先把所有 rank 的数据做规约，再把规约后的结果切成不同分片发给不同 rank。
+
+我觉得它最有用的记法是：
+
+```text
+ReduceScatter + AllGather ≈ AllReduce
+```
+
+在 ZeRO、FSDP、Megatron 风格的训练优化里，`ReduceScatter` 很常见，因为它可以把通信和显存分片结合起来。
+
+### 4.6 AllToAll：每个人都给每个人发不同的数据
+
+`AllToAll` 的语义是每个 rank 都向其他 rank 发送不同的数据，同时也从其他 rank 接收不同的数据。
+
+它在 MoE 里尤其重要。token 需要被路由到不同 expert，dispatch 和 combine 都可能涉及类似 `AllToAll` 的通信。这个操作对网络拓扑和交换结构非常敏感，也很容易成为 MoE 的主要瓶颈。
+
+## 5. NCCL 为什么能快
+
+NCCL 的目标不是简单做到“能通信”，而是尽量吃满底层硬件带宽。
+
+我理解它的高性能，主要来自三件事。
+
+### 5.1 拓扑感知
+
+NCCL 会关心 GPU 之间的物理连接关系：
+
+```text
+GPU-GPU 是否通过 NVLink 直连？
+GPU-GPU 是否经过同一个 PCIe Switch？
+GPU-GPU 是否跨 CPU Socket？
+GPU-NIC 距离远不远？
+```
+
+这些信息会影响 NCCL 选择通信路径。
+
+例如同一台 8 卡机器里，有些 GPU 之间是 NVLink，有些需要跨 PCIe root complex，有些 GPU 离 NIC 更近。NCCL 会尽量构建更合理的 ring、tree 和 channel，避免所有流量都挤在低效路径上。
+
+### 5.2 Ring 和 Tree
+
+`Ring` 是 AllReduce 里最经典的算法之一。假设 4 张卡组成一个环：
+
+```text
+GPU0 -> GPU1 -> GPU2 -> GPU3 -> GPU0
+```
+
+Ring AllReduce 通常可以拆成两个阶段：
+
+```text
+ReduceScatter:
+  每张卡把数据切块，在环上流动并逐步累加
+
+AllGather:
+  每张卡把最终分片继续传递，让所有卡得到完整结果
+```
+
+Ring 的优势是大消息下带宽利用率高，缺点是步数和 rank 数相关，小消息 latency 不一定最优。
+
+`Tree` 更像树形规约：
+
+```text
+      GPU0
+     /    \
+   GPU1   GPU2
+          /   \
+        GPU3  GPU4
+```
+
+Tree 的优势是延迟相对低，适合小消息或中等消息；但在大消息下，它不一定比 ring 更能吃满带宽。
+
+### 5.3 多 channel 并行
+
+NCCL 通常不会只走一条通信路径，而是把数据切成多个 chunk，用多个 channel 并行传输。
+
+```text
+一个大 tensor
+  -> 切成多个 chunk
+  -> 多条通信通道并发传输
+  -> 最后聚合
+```
+
+所以 NCCL 性能会和拓扑、message size、rank 数、NIC 数量强相关。不是所有机器都能靠同一个环境变量调好，也不是所有 collective 都会在同一个算法上表现最好。
+
+## 6. 单机和多机通信的差别
+
+单机多卡时，NCCL 主要处理 GPU 到 GPU 的通信：
+
+```text
+GPU <-> GPU
+```
+
+底层路径可能是：
+
+```text
+NVLink / NVSwitch
+PCIe P2P
+PCIe Switch
+CPU root complex
+```
+
+如果机器里有 NVLink 或 NVSwitch，通信性能通常会明显优于普通 PCIe。尤其是 tensor parallel 这种高频同步场景，TP group 最好尽量放在机内高速互联里。
+
+多机时，通信会变成两层：
+
+```text
+机内通信:
+  GPU <-> GPU
+
+机间通信:
+  GPU <-> NIC <-> 网络 <-> NIC <-> GPU
+```
+
+例如双机 16 卡的一次 AllReduce，逻辑上是 16 个 rank 一起做，但底层可能会分层优化：
+
+```text
+第一层：每台机器内部 8 卡先聚合
+第二层：两台机器之间通过网卡交换
+第三层：每台机器内部再分发
+```
+
+我现在看多机性能时，会先把瓶颈分成两类：
+
+```text
+单机瓶颈:
+  GPU-GPU 拓扑，例如 NVLink / PCIe / NUMA
+
+多机瓶颈:
+  NIC、交换机、RDMA、TCP、跨节点带宽、路由和过订阅
+```
+
+很多时候，单机内通信已经很快，真正拖慢的是跨节点链路。这个时候继续盯着 GPU 算力看，方向就偏了。
+
+## 7. PyTorch 和 vLLM 里我怎么遇到 NCCL
+
+在 PyTorch 里，我通常不会直接写 NCCL C API，而是通过 `torch.distributed` 间接调用。
+
+```python
+import torch.distributed as dist
+
+dist.init_process_group(
+    backend="nccl",
+    rank=rank,
+    world_size=world_size,
+)
+
+dist.all_reduce(tensor)
+```
+
+这里的：
+
+```python
+backend="nccl"
+```
+
+表示 PyTorch 的 collective 操作底层交给 NCCL 处理。
+
+在 vLLM 这类推理框架里，NCCL 主要出现在多卡并行推理场景。比如：
+
+```bash
+--tensor-parallel-size 4
+```
+
+这意味着一个模型层可能被切到 4 张卡上。每一层 forward 过程中，可能会出现：
+
+```text
+Linear 分片计算
+  -> AllReduce / AllGather
+
+Attention 分片计算
+  -> AllReduce / AllGather
+
+MLP 分片计算
+  -> AllReduce / ReduceScatter
+```
+
+如果通信慢，表现出来就是：
+
+```text
+每层 forward 等待通信
+decode 每 token latency 上升
+高并发吞吐下降
+P99 ITL 变差
+```
+
+如果是 pipeline parallel，通信更多是 `send / recv activation`，也就是上一段 pipeline 把 hidden states 发给下一段。
+
+如果是 MoE，通信重点就会转向 `AllToAll`。这时我会特别关注网络对分带宽、跨节点比例、expert 放置和 token dispatch 的数据分布。
+
+## 8. 调优和排查时，我最常用的 NCCL 环境变量
+
+NCCL 提供了很多环境变量。日常排查时，我最常先看这几个。
+
+```bash
+export NCCL_DEBUG=INFO
+```
+
+打印 NCCL 初始化、拓扑、通信路径等信息。
+
+```bash
+export NCCL_SOCKET_IFNAME=eth0
+```
+
+指定 TCP socket 使用哪个网卡。多机通信时，如果机器上有多张网卡，这个变量非常重要。
+
+```bash
+export NCCL_IB_HCA=mlx5_0,mlx5_1
+```
+
+指定使用哪些 InfiniBand / RDMA 网卡。
+
+```bash
+export NCCL_CROSS_NIC=0
+```
+
+控制多 NIC 场景下 ring/tree 是否跨不同 NIC。它不一定永远应该开或关，具体要看网络拓扑。
+
+```bash
+export NCCL_P2P_DISABLE=1
+```
+
+禁用 GPU P2P 通信。这个变量通常只用于定位问题，不建议随便作为长期配置。
+
+```bash
+export NCCL_IB_DISABLE=1
+```
+
+禁用 IB/RDMA，让 NCCL 退回 TCP socket。这个常用于判断 RDMA 路径是否有问题。
+
+这些变量的使用原则是：先观察，再假设，再做对照实验。比如我怀疑 RDMA 有问题，就可以临时禁用 IB 看性能和错误形态是否变化；但如果只是盲目复制环境变量，很容易把性能调得更差。
+
+## 9. NCCL 最常见的问题：hang
+
+NCCL 最典型的问题不是报一个清清楚楚的异常，而是卡住。
+
+我排查 hang 时，会先看下面几类问题。
+
+### 9.1 有 rank 没进入 collective
+
+例如：
+
+```python
+if rank == 0:
+    dist.all_reduce(x)
+```
+
+只有 rank 0 调用了 `all_reduce`，其他 rank 没调用，这就很容易 hang。正确的方式是所有 rank 都进入同一个 collective：
+
+```python
+dist.all_reduce(x)
+```
+
+### 9.2 不同 rank 的 tensor shape 不一致
+
+```text
+rank 0: tensor shape = [1024]
+rank 1: tensor shape = [2048]
+```
+
+这类问题有时不会优雅报错，而是表现成卡住、超时或结果异常。
+
+### 9.3 dtype 不一致
+
+```text
+rank 0: float16
+rank 1: bfloat16
+```
+
+collective 要求参与通信的 tensor 类型一致。shape、dtype、count 这些条件都要对齐。
+
+### 9.4 world size 或 rank 配置错误
+
+比如我以为是双机 16 卡：
+
+```text
+world_size = 16
+```
+
+但某台机器只启动了 7 个进程，最终只有 15 个 rank 加入。初始化阶段或者第一次 collective 就可能卡住。
+
+### 9.5 网卡选错
+
+多机时如果 `NCCL_SOCKET_IFNAME` 或 RDMA 网卡选错，常见表现包括：
+
+```text
+连接不上
+初始化很慢
+通信超时
+性能极差
+```
+
+这种问题很像“框架坏了”，但本质通常是网络路径、路由、网卡选择或防火墙配置不对。
+
+## 10. NCCL 性能怎么看
+
+我通常会用 `nccl-tests` 看基础性能，比如 AllReduce：
+
+```bash
+./build/all_reduce_perf -b 8 -e 1G -f 2 -g 8
+```
+
+这里最常见的两个指标是 `algbw` 和 `busbw`。
+
+`algbw` 是 algorithm bandwidth：
+
+```text
+algbw = 逻辑数据量 / 通信耗时
+```
+
+它回答的是：从用户视角看，这个 collective 完成得有多快。
+
+`busbw` 是 bus bandwidth：
+
+```text
+busbw = 折算到底层总线上的带宽
+```
+
+它会考虑 collective 算法中的实际数据搬运量，更接近底层链路利用情况。
+
+我一般这样看：
+
+```text
+小包看 latency
+大包看 bandwidth
+```
+
+比如：
+
+```text
+8B - 1KB: latency 主导
+1MB - 1GB: bandwidth 主导
+```
+
+这和推理场景也能对应起来。decode 阶段有时通信 tensor 不大，小消息延迟很关键；prefill 阶段 tensor 更大，带宽更关键。
+
+## 11. 从 NCCL 类比 CNCL
+
+我现在做 MLU/CNCL 相关场景时，NCCL 仍然很有参考价值。
+
+严格来说：
+
+```text
+NCCL 是 NVIDIA GPU / CUDA 生态的通信库
+CNCL 是寒武纪 MLU 生态中类似角色的通信库
+```
+
+但很多概念可以对应起来：
+
+| NVIDIA GPU 体系 | Cambricon MLU 体系 | 作用 |
+| --- | --- | --- |
+| CUDA | CNRT / MLU runtime | 设备运行时 |
+| NCCL | CNCL | 多卡 collective 通信 |
+| CUDA kernel | BANG / MLU kernel | 设备算子 |
+| NVLink / PCIe / IB | MLU Link / PCIe / 网络 | 物理互联 |
+| `backend="nccl"` | MLU 对应 backend / CNCL | 分布式后端 |
+
+所以当我分析双机 16 卡通信时，可以借用 NCCL 的思路理解 CNCL：
+
+```text
+Ray / vLLM 负责进程编排
+PyTorch distributed / vLLM distributed executor 负责分布式调用
+CNCL 负责 MLU 卡间 collective 通信
+GLOO 可能负责 CPU 侧 rendezvous / 控制面通信
+机器之间真正的数据面通信依赖网卡、路由、RDMA/TCP 和 CNCL 后端实现
+```
+
+这里有一个很重要的区分：`GLOO_SOCKET_IFNAME=eth0` 更偏控制面或 rendezvous，它不等价于“所有大 tensor 都通过 GLOO 传”。在 MLU 场景里，大 tensor 的 collective 通信更可能由 CNCL 处理。
+
+## 12. 我最后怎么记 NCCL
+
+如果只留一句话，我会这样记：
+
+```text
+NCCL/CNCL 不是训练框架，也不是调度框架。
+它是多卡之间真正搬 tensor 的高速通信引擎。
+```
+
+在 vLLM 多机多卡场景里，Ray 负责把 worker 拉起来，PyTorch distributed 或 vLLM executor 负责发起分布式调用，而 NCCL/CNCL 负责让 worker 之间真正交换张量。
+
+真正做性能分析时，我会按这个顺序拆问题：
+
+1. 先看 collective 类型，是 `AllReduce`、`AllGather`、`ReduceScatter` 还是 `AllToAll`。
+2. 再看 rank 映射和拓扑，是机内、跨 socket，还是跨节点。
+3. 再看消息大小，是 latency 主导还是 bandwidth 主导。
+4. 再看环境变量和网络路径，确认网卡、RDMA、P2P 有没有走到预期路径。
+5. 最后看上层框架是否改变了通信次数、分片方式或同步点。
+
+多卡系统的性能问题，经常不是某一层单独造成的。它可能从并行策略开始，在通信库里放大，最后被硬件拓扑定下上限。NCCL 的价值就在于，它让我能把这些层连起来看，而不是只盯着某一条日志或者某一个吞吐数字。
+
+## 参考资料
+
+1. NVIDIA NCCL User Guide, Overview: https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/overview.html
+2. NVIDIA NCCL User Guide, Collective Operations: https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/usage/collectives.html
+3. NVIDIA NCCL User Guide, Environment Variables: https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html
+4. PyTorch Documentation, Distributed Data Parallel: https://docs.pytorch.org/docs/stable/notes/ddp.html
