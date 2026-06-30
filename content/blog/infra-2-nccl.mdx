@@ -608,13 +608,42 @@ CNCL 是寒武纪 MLU 生态中类似角色的通信库
 
 但很多概念可以对应起来：
 
-| NVIDIA GPU 体系 | Cambricon MLU 体系 | 作用 |
-| --- | --- | --- |
-| CUDA | CNRT / MLU runtime | 设备运行时 |
-| NCCL | CNCL | 多卡 collective 通信 |
-| CUDA kernel | BANG / MLU kernel | 设备算子 |
-| NVLink / PCIe / IB | MLU Link / PCIe / 网络 | 物理互联 |
-| `backend="nccl"` | MLU 对应 backend / CNCL | 分布式后端 |
+<table>
+  <thead>
+    <tr>
+      <th>NVIDIA GPU 体系</th>
+      <th>Cambricon MLU 体系</th>
+      <th>作用</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>CUDA</td>
+      <td>CNRT / MLU runtime</td>
+      <td>设备运行时</td>
+    </tr>
+    <tr>
+      <td>NCCL</td>
+      <td>CNCL</td>
+      <td>多卡 collective 通信</td>
+    </tr>
+    <tr>
+      <td>CUDA kernel</td>
+      <td>BANG / MLU kernel</td>
+      <td>设备算子</td>
+    </tr>
+    <tr>
+      <td>NVLink / PCIe / IB</td>
+      <td>MLU Link / PCIe / 网络</td>
+      <td>物理互联</td>
+    </tr>
+    <tr>
+      <td><code>backend="nccl"</code></td>
+      <td>MLU 对应 backend / CNCL</td>
+      <td>分布式后端</td>
+    </tr>
+  </tbody>
+</table>
 
 所以当我分析双机 16 卡通信时，可以借用 NCCL 的思路理解 CNCL：
 

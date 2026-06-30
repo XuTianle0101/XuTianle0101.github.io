@@ -22,22 +22,33 @@ export function BlogListPage({ locale, rootMode = false }: { locale: Locale; roo
         </p>
       </SectionHeading>
 
-      <div className="space-y-0">
-        {posts.map((post) => (
+      <div className="border-y border-line dark:border-white/10">
+        {posts.map((post, index) => (
           <Link
             key={post.slug}
             href={localizedPath(locale, `/blog/${post.slug}`, rootMode)}
-            className="block border-t border-line py-8 transition hover:text-coral dark:border-white/10"
+            className="group grid gap-5 border-t border-line py-7 first:border-t-0 transition hover:bg-white/45 dark:border-white/10 dark:hover:bg-white/[0.03] md:grid-cols-[5rem_1fr] md:px-4"
           >
-            <p className="text-sm text-ink/55 dark:text-white/55">{formatDate(post.date, locale)}</p>
-            <h2 className="mt-3 font-serif text-3xl leading-tight sm:text-4xl">{text(post.title, locale)}</h2>
-            <p className="mt-4 leading-7 text-ink/68 dark:text-white/68">{text(post.description, locale)}</p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {post.tags.map((tag) => (
-                <span key={tag} className="rounded-full bg-ink/[0.06] px-3 py-1 text-xs text-ink/70 dark:bg-white/10 dark:text-white/70">
-                  {tag}
-                </span>
-              ))}
+            <div className="font-mono text-sm text-ink/42 dark:text-white/42 md:pt-1">
+              {String(index + 1).padStart(2, '0')}
+            </div>
+            <div>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs font-semibold uppercase tracking-[0.14em] text-ink/48 dark:text-white/48">
+                <span>{formatDate(post.date, locale)}</span>
+                <span className="h-1 w-1 rounded-full bg-ink/30 dark:bg-white/35" />
+                <span>{post.language}</span>
+              </div>
+              <h2 className="mt-3 font-serif text-[1.9rem] leading-tight transition group-hover:text-teal dark:group-hover:text-sky-300 sm:text-[2.6rem]">
+                {text(post.title, locale)}
+              </h2>
+              <p className="mt-4 max-w-3xl leading-8 text-ink/68 dark:text-white/68">{text(post.description, locale)}</p>
+              <div className="mt-5 flex flex-wrap gap-2">
+                {post.tags.map((tag) => (
+                  <span key={tag} className="border border-line bg-white/45 px-3 py-1 text-xs text-ink/65 dark:border-white/10 dark:bg-white/[0.04] dark:text-white/65">
+                    {tag}
+                  </span>
+                ))}
+              </div>
             </div>
           </Link>
         ))}

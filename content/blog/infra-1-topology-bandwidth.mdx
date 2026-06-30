@@ -646,15 +646,60 @@ busbw = algbw × (n - 1) / n
 
 ## 6. 一张表记住常见 collective 的换算关系
 
-| Collective    | algbw | busbw 修正系数 | busbw |
-| ------------- | ----- | --------------- | ----- |
-| Send/Recv     | `S/T` | `1` | `algbw` |
-| AllReduce     | `S/T` | `2 × (n - 1) / n` | `algbw × 2 × (n - 1) / n` |
-| ReduceScatter | `S/T` | `(n - 1) / n` | `algbw × (n - 1) / n` |
-| AllGather     | `S/T` | `(n - 1) / n` | `algbw × (n - 1) / n` |
-| Broadcast     | `S/T` | `1` | `algbw` |
-| Reduce        | `S/T` | `1` | `algbw` |
-| All-to-All    | `S/T` | `(n - 1) / n` | `algbw × (n - 1) / n` |
+<table>
+  <thead>
+    <tr>
+      <th>Collective</th>
+      <th>algbw</th>
+      <th>busbw 修正系数</th>
+      <th>busbw</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Send/Recv</td>
+      <td><code>S/T</code></td>
+      <td><code>1</code></td>
+      <td><code>algbw</code></td>
+    </tr>
+    <tr>
+      <td>AllReduce</td>
+      <td><code>S/T</code></td>
+      <td><code>2 × (n - 1) / n</code></td>
+      <td><code>algbw × 2 × (n - 1) / n</code></td>
+    </tr>
+    <tr>
+      <td>ReduceScatter</td>
+      <td><code>S/T</code></td>
+      <td><code>(n - 1) / n</code></td>
+      <td><code>algbw × (n - 1) / n</code></td>
+    </tr>
+    <tr>
+      <td>AllGather</td>
+      <td><code>S/T</code></td>
+      <td><code>(n - 1) / n</code></td>
+      <td><code>algbw × (n - 1) / n</code></td>
+    </tr>
+    <tr>
+      <td>Broadcast</td>
+      <td><code>S/T</code></td>
+      <td><code>1</code></td>
+      <td><code>algbw</code></td>
+    </tr>
+    <tr>
+      <td>Reduce</td>
+      <td><code>S/T</code></td>
+      <td><code>1</code></td>
+      <td><code>algbw</code></td>
+    </tr>
+    <tr>
+      <td>All-to-All</td>
+      <td><code>S/T</code></td>
+      <td><code>(n - 1) / n</code></td>
+      <td><code>algbw × (n - 1) / n</code></td>
+    </tr>
+  </tbody>
+</table>
 
 如果只想记住最重要的一件事，那就是：
 
