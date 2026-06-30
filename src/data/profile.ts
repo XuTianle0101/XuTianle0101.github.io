@@ -6,7 +6,7 @@ export const profile = {
     en: 'Tianle Xu',
   },
   headline: {
-    zh: 'AI 算法 / 大模型推理引擎 / 多模态视觉 / 医学影像重建',
+    zh: 'AI 算法 / AI Infra (Inference) / VLM',
     en: 'AI Algorithms / LLM Inference Systems / Multimodal Vision / Medical Imaging',
   },
   location: {
@@ -19,7 +19,7 @@ export const profile = {
   portrait: '/images/persona/me-hero.webp',
   heroImage: '/images/persona/me-hero.webp',
   summary: {
-    zh: '复旦大学生物医学工程硕士研究生，方向聚焦 AI 算法、大模型推理引擎、多模态视觉和医学影像重建。曾在寒武纪、咪咕视频、纳米维景医疗等场景中参与 vLLM_MLU、世界杯 AI 解说 VLM、32 源相控阵 CT 重建等项目。',
+    zh: '复旦大学本硕，聚焦 AI 算法、大模型推理优化和多模态大模型。曾在寒武纪参与 vLLM 和 SGLang 的维护与开发，在咪咕视频参与世界杯 AI 解说 VLM 研发。',
     en: 'I am a Biomedical Engineering master student at Fudan University, focused on AI algorithms, LLM inference systems, multimodal vision, and medical imaging reconstruction. My work spans vLLM_MLU on Cambricon MLUs, World Cup AI commentary VLMs, and multi-source CT reconstruction.',
   },
   longBio: {
@@ -61,31 +61,24 @@ export const profile = {
   skillGroups: [
     {
       name: {
-        zh: '编程语言 / 工程工具',
+        zh: '编程语言与工具',
         en: 'Programming & Engineering',
       },
       skills: ['Python', 'CUDA', 'Linux', 'Git'],
     },
     {
       name: {
-        zh: '机器学习框架 / 库',
+        zh: '机器学习框架',
         en: 'ML Frameworks & Libraries',
       },
       skills: ['PyTorch', 'TensorFlow', 'Transformer', 'Hugging Face'],
     },
     {
       name: {
-        zh: '核心算法领域',
+        zh: '核心算法与仓库',
         en: 'Core Algorithm Areas',
       },
       skills: ['vLLM', 'SGLang', 'VLM', 'YOLO', 'CT Reconstruction'],
-    },
-    {
-      name: {
-        zh: '数据与评测',
-        en: 'Data & Evaluation',
-      },
-      skills: ['Data Annotation', 'Model Evaluation', 'Hallucination Check', 'Algorithm Engineering'],
     },
   ],
   honors: [
