@@ -1,0 +1,418 @@
+---
+title:
+  zh: "什么是 skill？"
+  en: "What Is a Skill?"
+description:
+  zh: "从 AI Agent 的工作流角度理解 Skill：它不是重新训练模型，而是把任务流程、规则、脚本和资源封装成可复用的能力单元。"
+  en: "A practical explanation of skills in AI agents: reusable workflow packages that combine instructions, metadata, optional scripts, and resources."
+date: "2026-07-01"
+language: "zh"
+tags:
+  - AI Agent
+  - Codex
+  - Skill
+  - Workflow
+  - LLM
+---
+
+在 AI Agent 语境里，`Skill` 可以先理解成一句很朴素的话：
+
+```text
+Skill = 给 Agent 外挂的一套任务专用操作手册 + 可选工具资源包
+```
+
+它不是模型参数里新学出来的能力，也不是重新训练了一个模型。更准确地说，它是把某一类任务的流程、规则、脚本、模板和参考资料封装起来，让 Agent 在遇到对应任务时按需调用。
+
+比如一个处理 PDF 的 skill 可能长这样：
+
+```text
+pdf-skill/
+├── SKILL.md        # 技能说明、触发条件、操作步骤
+├── scripts/        # 可选：处理 PDF 的脚本
+├── references/     # 可选：参考文档
+└── assets/         # 可选：模板、样式、资源
+```
+
+OpenAI Codex 的官方文档也把 skill 描述成一种用于扩展 Codex 特定任务能力的包：它可以包含 instructions、resources 和可选 scripts，让 Codex 更可靠地执行某个工作流。[1]
+
+所以我现在更愿意把 Skill 理解成 Agent 系统里的“工作流模块”，而不是模型本身的新知识。
+
+## 1. Skill 本质是什么
+
+一句话概括：
+
+```text
+Skill = 面向特定任务的可复用工作流封装
+```
+
+一个 skill 通常包含三类东西。
+
+第一类是元信息，也就是告诉系统这个 skill 叫什么、什么时候该用：
+
+```yaml
+name: pdf
+description: Use this skill when creating, editing, or analyzing PDFs.
+```
+
+第二类是操作说明，也就是告诉模型真正执行任务时应该遵守什么流程：
+
+```markdown
+When asked to edit a PDF:
+1. Inspect the PDF structure.
+2. Preserve layout.
+3. Use the provided script for text replacement.
+4. Export the result.
+```
+
+第三类是可选执行资源，例如 Python 脚本、模板文件、配置文件、示例文件、转换工具等。Open Agent Skills 标准里也有类似定义：一个 skill 的核心是包含 `SKILL.md` 的目录，`SKILL.md` 至少包含 `name` 和 `description`，同时可以附带 scripts、references、assets 等资源。[2]
+
+这也是 Skill 和普通“提示词”的第一层区别：它不是只写一段自然语言提醒模型，而是把一类任务沉淀成一个可以被发现、被加载、被版本管理、被复用的工程单元。
+
+## 2. 技术原理：不是训练，而是按需加载上下文
+
+Skill 的核心机制叫 `progressive disclosure`，可以翻译成渐进式披露，也可以直白地理解为按需加载。
+
+它大概分成三步。
+
+### 2.1 Discovery：先发现有哪些技能
+
+系统启动时，不会把所有 skill 的完整内容都塞进模型上下文。原因很简单：如果每个 skill 都有几千字说明，再加上脚本、参考文档、模板，context window 很快就会被占满。
+
+所以系统一开始通常只暴露每个 skill 的最小信息：
+
+```text
+name
+description
+file path
+```
+
+这一步的作用是让模型知道：
+
+```text
+我有哪些可用技能；
+每个技能大概适合什么任务；
+完整说明在什么位置。
+```
+
+OpenAI Codex 文档里也明确提到，Codex 起初只拿到 skill 的 name、description 和路径；只有当它决定使用某个 skill 时，才会读取完整的 `SKILL.md`。[1]
+
+### 2.2 Activation：再判断是否触发
+
+当用户提出任务时，模型会把用户请求和 skill 的 `description` 做语义匹配。
+
+例如用户说：
+
+```text
+帮我把这个 PDF 里的财务数据提取成 Excel
+```
+
+系统里正好有一个 skill：
+
+```yaml
+name: pdf
+description: Use this skill for reading, extracting, editing, or generating PDF documents.
+```
+
+模型就会判断：这个任务和 PDF skill 高度相关，于是触发该 skill。
+
+Skill 一般有两种触发方式：
+
+1. 显式触发：用户直接说“使用某某 skill”。
+2. 隐式触发：模型根据任务内容自动选择合适 skill。
+
+这里最关键的是 `description`。它不像普通文档里的简介，而更像路由元数据。description 写得越清楚，Agent 越容易在正确的时候触发它，也越不容易在错误场景里误用。
+
+### 2.3 Execution：最后执行技能流程
+
+Skill 被激活后，系统会把完整的 `SKILL.md` 加入模型上下文。模型接下来不再只是“凭经验”处理任务，而是按照 skill 里定义的步骤执行。
+
+例如一个 spreadsheet skill 可能会要求：
+
+```markdown
+For spreadsheet tasks:
+- Use openpyxl.
+- Preserve formulas.
+- Keep formatting.
+- Do not use LibreOffice unless explicitly requested.
+```
+
+这时模型处理 Excel，就不只是泛泛地“读文件、改文件、保存文件”，而是要遵守更具体的工程约束：保留公式、保留格式、优先使用指定库、避免破坏已有结构。
+
+如果 skill 里还包含脚本，模型也可以调用这些脚本完成更稳定的操作：
+
+```text
+scripts/extract_tables.py
+scripts/replace_pdf_text.py
+scripts/validate_excel.py
+```
+
+所以 Skill 的技术链路可以简化成：
+
+```text
+用户任务
+  ↓
+模型判断任务类型
+  ↓
+匹配 skill description
+  ↓
+加载对应 SKILL.md
+  ↓
+按照专用 instructions 执行
+  ↓
+必要时调用脚本 / 工具 / 模板
+  ↓
+输出结果
+```
+
+这里没有发生模型参数更新。真正变化的是：Agent 的上下文、流程和工具使用方式被临时切换到了某个更专业的工作模式。
+
+## 3. Skill 和 Prompt 有什么区别
+
+Skill 可以理解成“工程化、可复用、结构化的 Prompt”，但它比普通 prompt 更像一个可维护的软件资产。
+
+<table>
+  <thead>
+    <tr>
+      <th>对比项</th>
+      <th>普通 Prompt</th>
+      <th>Skill</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>作用范围</td>
+      <td>当前一次对话</td>
+      <td>可复用</td>
+    </tr>
+    <tr>
+      <td>结构</td>
+      <td>自然语言为主</td>
+      <td><code>SKILL.md</code> + 资源目录</td>
+    </tr>
+    <tr>
+      <td>版本管理</td>
+      <td>不方便</td>
+      <td>可以用 Git 管理</td>
+    </tr>
+    <tr>
+      <td>脚本资源</td>
+      <td>一般不能携带</td>
+      <td>可以携带 scripts、assets、references</td>
+    </tr>
+    <tr>
+      <td>触发方式</td>
+      <td>通常靠用户手动输入</td>
+      <td>可以通过 description 自动匹配</td>
+    </tr>
+    <tr>
+      <td>适合场景</td>
+      <td>临时任务</td>
+      <td>固定流程、团队规范、复杂工具链</td>
+    </tr>
+  </tbody>
+</table>
+
+所以 Skill 更像是：
+
+```text
+Prompt + SOP + 工具脚本 + 模板 + 触发机制
+```
+
+一个 prompt 可以告诉模型“这次怎么做”。一个 skill 则更像告诉 Agent：“以后遇到这类任务，都按这套方式做。”
+
+## 4. Skill、Tool 和 Plugin 有什么区别
+
+这几个概念很容易混在一起，但它们解决的问题不一样。
+
+### 4.1 Tool：让模型能做动作
+
+Tool 是模型可以调用的外部能力，比如：
+
+```text
+搜索网页
+运行 Python
+调用 API
+读写文件
+生成图片
+操作浏览器
+```
+
+OpenAI Agents SDK 文档中也把 tools 描述为让 agent 执行动作的能力，例如获取数据、运行代码、调用外部 API、使用计算机等。[3]
+
+如果没有 tool，模型大多只能“说”。有了 tool，模型才可以真正对外部世界做动作。
+
+### 4.2 Skill：告诉模型怎么正确使用能力
+
+Skill 更偏流程和知识。例如：
+
+```text
+处理 PDF 时先检查结构
+生成 Excel 时保留公式和格式
+写论文时遵守某种引用格式
+修 Git 分支时先检查 commit graph
+调 vLLM 性能时先区分 prefill、decode、scheduler 和通信瓶颈
+```
+
+也就是说，tool 解决的是“能不能做”，skill 解决的是“怎么做得稳定、规范、可复用”。
+
+### 4.3 Plugin：更偏分发和安装
+
+在 Codex 的语境里，skill 是可复用工作流的 authoring format，而 plugin 更像 installable distribution unit，也就是把 skill、app 等能力打包分发的安装单元。[1]
+
+可以用一句话区分：
+
+```text
+Tool   = 能力接口
+Skill  = 使用能力的流程
+Plugin = 分发 Skill / App 的包
+```
+
+这三个东西可以组合起来。一个 plugin 里可以带多个 skills；一个 skill 的 instructions 可以告诉模型调用哪些 tools；tools 再负责执行真实动作。
+
+## 5. 为什么 Skill 有用
+
+大模型的通用能力已经很强，但真正做工程任务时，常常会遇到三个问题。
+
+第一个问题是流程不稳定。同一个任务，模型这次可能用 A 方法，下次可能用 B 方法；这次记得先检查输入，下次可能直接动手改文件。对于一次性问答这可能还能接受，但对代码修改、论文处理、Office 文档、PDF、数据分析这类任务来说，流程漂移会直接带来风险。
+
+第二个问题是上下文太长。很多任务都需要长说明：怎么处理异常、用哪个库、保留什么格式、禁止什么操作、参考哪些规范。如果把所有说明都长期塞进系统提示词，模型上下文会被迅速挤满。
+
+第三个问题是领域规范难记住。比如某个团队内部的提交规范、测试流程、文档模板、审计规则、代码风格、实验记录格式，都不是通用模型应该永久背下来的东西，但 Agent 执行任务时又确实需要遵守。
+
+Skill 的解决方式是：
+
+```text
+平时只暴露简短 description；
+真正需要时才加载完整说明和资源。
+```
+
+这样既节省上下文，又能让任务执行更稳定。Open Agent Skills 文档也把这个过程拆成 Discovery、Activation、Execution 三个阶段：先发现可用技能，再根据任务激活，最后加载完整 instructions 执行。[2]
+
+## 6. 用 AI Infra 的角度理解
+
+如果从 AI Infra 的角度看，可以把 Skill 类比成推理系统里的“按需加载专家模块”：
+
+```text
+用户请求 = query
+skill description = routing metadata
+skill activation = router 选择专家
+SKILL.md = 专家模块的 instruction context
+scripts/tools = 外部执行算子
+agent = 调度器 + 执行器
+```
+
+但这个类比要小心。Skill 不像 MoE 那样在模型内部路由参数，它是在模型外部做三类路由：
+
+```text
+上下文路由
+工具路由
+工作流路由
+```
+
+所以它更接近 Agent 层面的能力编排机制，而不是模型结构创新。
+
+这个视角很重要。因为 Skill 的价值不在于“模型突然变聪明了”，而在于系统把“什么时候该看哪份说明、该遵守哪套流程、该调用哪些资源”工程化了。
+
+## 7. 一个 vLLM debug skill 的例子
+
+假设我想给 Codex 做一个 vLLM debug skill，它的目录可以这样设计：
+
+```text
+vllm-debug/
+├── SKILL.md
+├── scripts/
+│   ├── parse_vllm_logs.py
+│   └── compare_perf_stats.py
+└── references/
+    └── common_errors.md
+```
+
+`SKILL.md` 可以写成：
+
+```markdown
+---
+name: vllm-debug
+description: Use this skill when debugging vLLM serving, scheduler, KV cache, prefix caching, or distributed inference errors.
+---
+
+When debugging vLLM performance:
+1. First identify whether the issue is prefill, decode, scheduler, KV cache, or communication.
+2. Parse logs for throughput, batch size, prefix cache hit rate, and preemption.
+3. Compare config flags such as max_num_seqs, max_model_len, enable_chunked_prefill, enable_prefix_caching.
+4. If distributed, inspect Ray, NCCL/CNCL, rank-level logs, and network interface settings.
+```
+
+之后如果用户问：
+
+```text
+vLLM 高并发下 P99 ITL 抖动很大，怎么查？
+```
+
+Agent 就可能自动触发 `vllm-debug` skill，然后按照你定义的 debug SOP 分析：
+
+1. 先判断问题更像 prefill、decode、scheduler、KV cache，还是通信。
+2. 再看吞吐、batch、prefix cache hit rate、preemption 等指标。
+3. 再检查关键配置项是否改变。
+4. 如果是多机多卡，再继续看 Ray、NCCL/CNCL、rank 日志和网络接口。
+
+这比泛泛回答“检查性能瓶颈、查看日志、优化参数”更有价值，因为它把排查路径固定成了一套可复用流程。
+
+## 8. 什么时候应该写成 Skill
+
+不是所有提示词都值得做成 skill。更适合沉淀成 skill 的任务，一般有这些特征：
+
+1. 会反复出现。
+2. 有明确步骤。
+3. 对格式、工具或流程有约束。
+4. 出错成本比较高。
+5. 需要携带脚本、模板或参考文档。
+6. 希望团队或自己长期复用。
+
+例如：
+
+```text
+PDF 表格抽取
+Word 论文格式检查
+Excel 数据清洗和图表生成
+LaTeX 论文编译与投稿检查
+GitHub PR review comment 修复
+vLLM / NCCL / Ray 性能排查
+公司内部代码发布流程
+```
+
+这些任务如果每次都靠临时 prompt，模型很容易漏步骤。做成 skill 以后，Agent 可以在合适的时候自动进入对应工作流。
+
+反过来，如果只是一次性的普通问答，比如“解释一下这个概念”或者“帮我改一句文案”，就没有必要专门写 skill。普通 prompt 已经足够。
+
+## 9. 我最后怎么记 Skill
+
+如果只留一个核心理解，我会这样记：
+
+```text
+Skill 不是让模型学会新知识，
+而是让 Agent 在合适的时候加载一套专用说明、资源和脚本，
+从而更稳定地完成某类任务。
+```
+
+更技术化地说：
+
+```text
+Skill = 文件系统中的可发现能力单元
+      = metadata-based routing
+      + on-demand context injection
+      + procedural instruction following
+      + optional tool/script execution
+      + reusable workflow packaging
+```
+
+它的价值不在于模型本身变强，而在于把“怎么做一类任务”工程化、模块化、可复用化。
+
+所以在 Agent 系统里，Skill 不是一个小装饰，而是一种很实用的能力组织方式：它把人的经验、团队的规范、工具的使用方法和可执行资源放到同一个包里，再让模型按需取用。
+
+这也是为什么我觉得 Skill 会越来越像 Agent 工程里的基础组件。模型负责理解和调度，tool 负责执行动作，而 skill 负责把一类任务的正确做法固定下来。
+
+## 参考资料
+
+1. OpenAI Developers, Agent Skills - Codex: https://developers.openai.com/codex/skills
+2. Open Agent Skills, Agent Skills Overview: https://agentskills.io/home
+3. OpenAI Agents SDK, Tools: https://openai.github.io/openai-agents-python/tools/
