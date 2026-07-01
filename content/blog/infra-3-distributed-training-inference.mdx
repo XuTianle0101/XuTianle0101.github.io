@@ -3,8 +3,8 @@ title:
   zh: "[Infra-3] 分布式训练和分布式推理"
   en: "[Infra-3] Distributed Training and Distributed Inference"
 description:
-  zh: "从目标、计算流程、显存结构、通信模式、性能指标和调度逻辑出发，系统区分分布式训练与分布式推理，并结合 vLLM/MLU 多机多卡场景总结分析重点。"
-  en: "A practical comparison of distributed training and distributed inference across goals, dataflow, memory, communication, performance metrics, scheduling, and vLLM/MLU deployment."
+  zh: "从目标、计算流程、显存结构、通信模式、性能指标和调度逻辑出发，系统区分分布式训练与分布式推理，并结合 vLLM 多机多卡场景总结分析重点。"
+  en: "A practical comparison of distributed training and distributed inference across goals, dataflow, memory, communication, performance metrics, scheduling, and vLLM deployment."
 date: "2026-07-01"
 language: "zh"
 tags:
@@ -221,13 +221,42 @@ KV Cache 分布式管理
 
 训练和推理都可能用到相似的并行方式，但每种并行在两种场景下的意义不同。
 
-| 并行方式 | 训练中的用途 | 推理中的用途 |
-| --- | --- | --- |
-| 数据并行 DP | 多卡处理不同 batch，并同步梯度 | 多个模型副本服务不同请求，提高并发 |
-| 张量并行 TP | 切分大矩阵，降低单卡显存压力 | 切分模型权重，让大模型能部署 |
-| 流水线并行 PP | 切分模型层，训练超大模型 | 切分模型层，部署超大模型 |
-| 专家并行 EP | MoE 模型训练中的 expert 分布 | MoE 模型推理中的 expert 路由 |
-| ZeRO/FSDP | 切分参数、梯度和优化器状态 | 推理中通常不需要完整训练状态切分 |
+<table>
+  <thead>
+    <tr>
+      <th>并行方式</th>
+      <th>训练中的用途</th>
+      <th>推理中的用途</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>数据并行 DP</td>
+      <td>多卡处理不同 batch，并同步梯度</td>
+      <td>多个模型副本服务不同请求，提高并发</td>
+    </tr>
+    <tr>
+      <td>张量并行 TP</td>
+      <td>切分大矩阵，降低单卡显存压力</td>
+      <td>切分模型权重，让大模型能部署</td>
+    </tr>
+    <tr>
+      <td>流水线并行 PP</td>
+      <td>切分模型层，训练超大模型</td>
+      <td>切分模型层，部署超大模型</td>
+    </tr>
+    <tr>
+      <td>专家并行 EP</td>
+      <td>MoE 模型训练中的 expert 分布</td>
+      <td>MoE 模型推理中的 expert 路由</td>
+    </tr>
+    <tr>
+      <td>ZeRO/FSDP</td>
+      <td>切分参数、梯度和优化器状态</td>
+      <td>推理中通常不需要完整训练状态切分</td>
+    </tr>
+  </tbody>
+</table>
 
 这里最容易混淆的是数据并行。
 
@@ -244,7 +273,7 @@ KV Cache 分布式管理
 ```text
 tokens/s
 samples/s
-GPU/MLU 利用率
+GPU 利用率
 scaling efficiency
 通信占比
 loss 曲线
@@ -328,10 +357,27 @@ Decode 阶段负责逐 token 生成。每一步只生成一个或少量 token，
 
 这两个阶段的瓶颈不同：
 
-| 阶段 | 主要特点 | 常见瓶颈 |
-| --- | --- | --- |
-| Prefill | prompt 长度可能很长，计算量大 | 算力、带宽、长 prompt 调度 |
-| Decode | 逐 token 生成，小步多次 | latency、KV Cache、调度开销、同步点 |
+<table>
+  <thead>
+    <tr>
+      <th>阶段</th>
+      <th>主要特点</th>
+      <th>常见瓶颈</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Prefill</td>
+      <td>prompt 长度可能很长，计算量大</td>
+      <td>算力、带宽、长 prompt 调度</td>
+    </tr>
+    <tr>
+      <td>Decode</td>
+      <td>逐 token 生成，小步多次</td>
+      <td>latency、KV Cache、调度开销、同步点</td>
+    </tr>
+  </tbody>
+</table>
 
 所以分析推理性能时，不能只看总 tokens/s。一个系统可能 prefill 很快，但 decode 的 ITL 很差；也可能总吞吐不错，但 P99 latency 很糟。真正做在线服务时，这些指标要拆开看。
 
@@ -394,19 +440,72 @@ decode 阶段 token 间隔变大
 
 ## 11. 一张表总结差异
 
-| 维度 | 分布式训练 | 分布式推理 |
-| --- | --- | --- |
-| 核心目标 | 训练模型、更新参数 | 部署模型、响应请求 |
-| 是否反向传播 | 有 | 通常没有 |
-| 是否更新参数 | 有 | 没有 |
-| 主要显存压力 | 参数、梯度、优化器、activation | 参数、KV Cache |
-| 典型通信 | 梯度 AllReduce、参数分片同步 | TP/PP 通信、KV Cache、请求调度 |
-| 主要指标 | tokens/s、samples/s、scaling efficiency、loss | TTFT、ITL、TPOT、P99 latency、QPS |
-| 输入形态 | batch 相对规则 | 请求动态、长度不一 |
-| 调度复杂度 | 相对规则 | 很复杂 |
-| 框架代表 | Megatron-LM、DeepSpeed、FSDP、Horovod | vLLM、SGLang、TensorRT-LLM、TGI |
-| 失败恢复 | checkpoint 恢复训练 | 服务重试、切流、扩缩容 |
-| 性能瓶颈 | 通信同步、显存、算力利用率 | KV Cache、调度、尾延迟、prefill/decode imbalance |
+<table>
+  <thead>
+    <tr>
+      <th>维度</th>
+      <th>分布式训练</th>
+      <th>分布式推理</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>核心目标</td>
+      <td>训练模型、更新参数</td>
+      <td>部署模型、响应请求</td>
+    </tr>
+    <tr>
+      <td>是否反向传播</td>
+      <td>有</td>
+      <td>通常没有</td>
+    </tr>
+    <tr>
+      <td>是否更新参数</td>
+      <td>有</td>
+      <td>没有</td>
+    </tr>
+    <tr>
+      <td>主要显存压力</td>
+      <td>参数、梯度、优化器、activation</td>
+      <td>参数、KV Cache</td>
+    </tr>
+    <tr>
+      <td>典型通信</td>
+      <td>梯度 AllReduce、参数分片同步</td>
+      <td>TP/PP 通信、KV Cache、请求调度</td>
+    </tr>
+    <tr>
+      <td>主要指标</td>
+      <td>tokens/s、samples/s、scaling efficiency、loss</td>
+      <td>TTFT、ITL、TPOT、P99 latency、QPS</td>
+    </tr>
+    <tr>
+      <td>输入形态</td>
+      <td>batch 相对规则</td>
+      <td>请求动态、长度不一</td>
+    </tr>
+    <tr>
+      <td>调度复杂度</td>
+      <td>相对规则</td>
+      <td>很复杂</td>
+    </tr>
+    <tr>
+      <td>框架代表</td>
+      <td>Megatron-LM、DeepSpeed、FSDP、Horovod</td>
+      <td>vLLM、SGLang、TensorRT-LLM、TGI</td>
+    </tr>
+    <tr>
+      <td>失败恢复</td>
+      <td>checkpoint 恢复训练</td>
+      <td>服务重试、切流、扩缩容</td>
+    </tr>
+    <tr>
+      <td>性能瓶颈</td>
+      <td>通信同步、显存、算力利用率</td>
+      <td>KV Cache、调度、尾延迟、prefill/decode imbalance</td>
+    </tr>
+  </tbody>
+</table>
 
 如果只记一个区别，我会记这个：
 
@@ -435,9 +534,9 @@ decode 阶段 token 间隔变大
 
 这个类比不严谨，但很有助于建立直觉：训练是协作式更新，推理是在线式服务。
 
-## 13. 对 vLLM / MLU 多机多卡推理的启发
+## 13. 对 vLLM 多机多卡推理的启发
 
-如果分析 vLLM 多机多卡推理，尤其是 MLU/CNCL 场景，我会先提醒自己：这不是分布式训练问题，而是分布式推理问题。
+如果分析 vLLM 多机多卡推理，我会先提醒自己：这不是分布式训练问题，而是分布式推理问题。
 
 所以分析重点应该放在：
 
@@ -455,7 +554,7 @@ decode 阶段 token 间隔变大
 尤其是双机 16 卡推理时，真正影响模型并行性能的通常不是 Ray 本身，而是：
 
 ```text
-MLU/GPU 间通信库
+GPU 间通信库
 网卡和驱动
 跨节点网络
 物理拓扑

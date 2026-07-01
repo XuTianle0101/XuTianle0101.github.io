@@ -597,13 +597,13 @@ busbw = 折算到底层总线上的带宽
 
 ## 11. 从 NCCL 类比 CNCL
 
-我现在做 MLU/CNCL 相关场景时，NCCL 仍然很有参考价值。
+我现在做 CNCL 相关场景时，NCCL 仍然很有参考价值。
 
 严格来说：
 
 ```text
 NCCL 是 NVIDIA GPU / CUDA 生态的通信库
-CNCL 是寒武纪 MLU 生态中类似角色的通信库
+CNCL 是寒武纪硬件生态中类似角色的通信库
 ```
 
 但很多概念可以对应起来：
@@ -612,14 +612,14 @@ CNCL 是寒武纪 MLU 生态中类似角色的通信库
   <thead>
     <tr>
       <th>NVIDIA GPU 体系</th>
-      <th>Cambricon MLU 体系</th>
+      <th>Cambricon 体系</th>
       <th>作用</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td>CUDA</td>
-      <td>CNRT / MLU runtime</td>
+      <td>CNRT / runtime</td>
       <td>设备运行时</td>
     </tr>
     <tr>
@@ -629,17 +629,17 @@ CNCL 是寒武纪 MLU 生态中类似角色的通信库
     </tr>
     <tr>
       <td>CUDA kernel</td>
-      <td>BANG / MLU kernel</td>
+      <td>BANG kernel</td>
       <td>设备算子</td>
     </tr>
     <tr>
       <td>NVLink / PCIe / IB</td>
-      <td>MLU Link / PCIe / 网络</td>
+      <td>芯片互联 / PCIe / 网络</td>
       <td>物理互联</td>
     </tr>
     <tr>
       <td><code>backend="nccl"</code></td>
-      <td>MLU 对应 backend / CNCL</td>
+      <td>对应 backend / CNCL</td>
       <td>分布式后端</td>
     </tr>
   </tbody>
@@ -650,12 +650,12 @@ CNCL 是寒武纪 MLU 生态中类似角色的通信库
 ```text
 Ray / vLLM 负责进程编排
 PyTorch distributed / vLLM distributed executor 负责分布式调用
-CNCL 负责 MLU 卡间 collective 通信
+CNCL 负责加速卡间 collective 通信
 GLOO 可能负责 CPU 侧 rendezvous / 控制面通信
 机器之间真正的数据面通信依赖网卡、路由、RDMA/TCP 和 CNCL 后端实现
 ```
 
-这里有一个很重要的区分：`GLOO_SOCKET_IFNAME=eth0` 更偏控制面或 rendezvous，它不等价于“所有大 tensor 都通过 GLOO 传”。在 MLU 场景里，大 tensor 的 collective 通信更可能由 CNCL 处理。
+这里有一个很重要的区分：`GLOO_SOCKET_IFNAME=eth0` 更偏控制面或 rendezvous，它不等价于“所有大 tensor 都通过 GLOO 传”。在这类硬件生态里，大 tensor 的 collective 通信更可能由 CNCL 处理。
 
 ## 12. 我最后怎么记 NCCL
 
