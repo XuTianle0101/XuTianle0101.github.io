@@ -1,0 +1,429 @@
+---
+title:
+  zh: "什么是Beam Search"
+  en: "What Is Beam Search?"
+description:
+  zh: "从贪心搜索的局限出发，解释 Beam Search 的搜索过程、beam size、打分公式、长度惩罚，以及它在大模型推理系统中的性能影响。"
+  en: "A practical explanation of Beam Search: how it improves on greedy decoding, how beam size works, how scores are computed, and why it is expensive in LLM inference systems."
+date: "2026-07-02"
+language: "zh"
+tags:
+  - LLM
+  - Decoding
+  - Inference
+  - Beam Search
+  - vLLM
+---
+
+在生成式模型里，**Beam Search（束搜索）**是一种常见的序列搜索算法，常用于机器翻译、语音识别、摘要生成、图像描述、结构化文本生成等任务。
+
+一句话概括：
+
+**Beam Search 每一步不只保留当前概率最高的一个结果，而是保留前 `beam_size` 个较优候选序列，再继续向后扩展。**
+
+它介于两种极端之间：
+
+- Greedy Search：每一步只保留 1 条路径，速度快，但容易局部最优；
+- Exhaustive Search：保留所有可能路径，理论上最充分，但计算量爆炸；
+- Beam Search：每一步只保留最有希望的 `beam_size` 条路径，在效果和成本之间折中。
+
+所以，Beam Search 的核心不是“随机采样”，而是“有限宽度的确定性搜索”。
+
+## 1. 为什么需要 Beam Search
+
+语言模型生成文本时，本质上是在做：
+
+```text
+给定前面的 token，预测下一个 token
+```
+
+例如输入：
+
+```text
+I like
+```
+
+模型可能给出下一个 token 的概率：
+
+```text
+playing: 0.4
+eating: 0.3
+reading: 0.2
+running: 0.1
+```
+
+最简单的方法是 **Greedy Search**，也就是每一步都选择概率最高的 token。
+
+所以它会直接选：
+
+```text
+I like playing
+```
+
+然后继续生成。
+
+问题在于：**当前一步概率最高，不代表整句话的概率最高，也不代表最终结果最好。**
+
+比如第一步选 `playing` 看起来最好，但继续往后生成后：
+
+```text
+I like playing football
+```
+
+整体得分可能不如：
+
+```text
+I like eating hotpot
+```
+
+Greedy Search 的问题就是太早做决定。它每一步都把其他路径全部丢掉，一旦走错，后面没有反悔空间。
+
+Beam Search 的想法更谨慎一点：先别急着只选一条路，每一步保留几条看起来不错的路径，继续观察它们后面的发展。
+
+## 2. Beam Search 怎么做
+
+假设：
+
+```text
+beam_size = 3
+```
+
+这表示每一步最多保留 3 个候选序列。
+
+### 2.1 第一步：保留 top beams
+
+输入：
+
+```text
+I like
+```
+
+模型预测：
+
+```text
+playing: 0.4
+eating: 0.3
+reading: 0.2
+running: 0.1
+```
+
+Beam Search 会保留前三个候选：
+
+```text
+I like playing
+I like eating
+I like reading
+```
+
+这一步和 Greedy Search 的区别已经出现了：Greedy Search 只留下 `I like playing`，而 Beam Search 暂时保留了三条路径。
+
+### 2.2 第二步：扩展每个候选
+
+接下来分别对三个候选序列继续预测。
+
+例如：
+
+```text
+I like playing -> football: 0.5, games: 0.3
+I like eating  -> hotpot: 0.6, noodles: 0.3
+I like reading -> books: 0.7, papers: 0.2
+```
+
+这时要计算完整序列的累计概率：
+
+```text
+I like playing football: 0.4 * 0.5 = 0.20
+I like eating hotpot:    0.3 * 0.6 = 0.18
+I like reading books:    0.2 * 0.7 = 0.14
+I like playing games:    0.4 * 0.3 = 0.12
+I like eating noodles:   0.3 * 0.3 = 0.09
+```
+
+然后继续保留得分最高的 3 个：
+
+```text
+I like playing football
+I like eating hotpot
+I like reading books
+```
+
+后面不断重复这个过程，直到生成 `<eos>` 结束符，或者达到最大生成长度。
+
+## 3. 和 Greedy Search、穷举搜索的区别
+
+<table>
+  <thead>
+    <tr>
+      <th>方法</th>
+      <th>每一步保留几个候选</th>
+      <th>优点</th>
+      <th>缺点</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Greedy Search</td>
+      <td>1 个</td>
+      <td>快，简单</td>
+      <td>容易局部最优</td>
+    </tr>
+    <tr>
+      <td>Beam Search</td>
+      <td><code>beam_size</code> 个</td>
+      <td>通常比贪心搜索更稳</td>
+      <td>更慢，占更多显存或内存</td>
+    </tr>
+    <tr>
+      <td>Exhaustive Search</td>
+      <td>所有可能</td>
+      <td>理论上最充分</td>
+      <td>计算量指数爆炸，不现实</td>
+    </tr>
+  </tbody>
+</table>
+
+可以把它们想成三种走迷宫的方式：
+
+- Greedy Search：每个岔路口都选眼前看起来最好的那条路；
+- Beam Search：每个岔路口保留几条看起来不错的路线；
+- Exhaustive Search：所有路线都走一遍，最后选最好的。
+
+Beam Search 的重点就是：**它比贪心多看几条路，但不会像穷举那样把所有路都走完。**
+
+## 4. Beam Size 是什么
+
+`beam_size` 是 Beam Search 最重要的参数。
+
+如果：
+
+```text
+beam_size = 1
+```
+
+它就退化成 Greedy Search。
+
+如果：
+
+```text
+beam_size = 4
+```
+
+表示每一步保留 4 条候选路径。
+
+如果：
+
+```text
+beam_size = 10
+```
+
+表示每一步保留 10 条候选路径。
+
+beam size 越大，搜索越充分，但代价也越高。
+
+常见影响包括：
+
+- 可能找到更高概率的序列；
+- decode 阶段计算量增加；
+- KV cache、内存或显存占用增加；
+- beam 排序、剪枝、重排成本增加；
+- 生成结果可能更保守、更模板化；
+- 不一定越大越好。
+
+所以，`beam_size` 不是一个越大越强的旋钮。它更像一个质量和成本之间的预算开关。
+
+## 5. Beam Search 的核心公式
+
+语言模型希望找到给定输入 `x` 时概率最高的输出序列 `y`：
+
+```text
+argmax_y P(y | x)
+```
+
+如果输出序列是：
+
+```text
+y = y1, y2, ..., yT
+```
+
+根据链式法则：
+
+```text
+P(y | x) = P(y1 | x) * P(y2 | x, y1) * ... * P(yT | x, y1...yT-1)
+```
+
+直接相乘会遇到两个问题。
+
+第一，很多小概率连续相乘，数值容易下溢。
+
+第二，序列越长，乘出来的概率通常越小，这会让模型偏向短句。
+
+所以实际实现里通常使用 log probability：
+
+```text
+score = log P(y1) + log P(y2) + ... + log P(yT)
+```
+
+Beam Search 每一步保留 score 最高的前 `beam_size` 个候选。
+
+但只用 log probability 仍然可能偏向短序列，因此很多实现会加入长度归一化或长度惩罚：
+
+```text
+normalized_score = score / length_penalty
+```
+
+不同框架的 `length_penalty` 写法可能不同，但目的类似：避免模型过度偏向过短输出，尤其是在翻译、摘要这类任务中很重要。
+
+## 6. 为什么 Beam Search 会让结果更保守
+
+Beam Search 追求的是高概率序列。
+
+而语言模型里的高概率表达，往往是更常见、更安全、更普通的表达。
+
+例如写作任务里，Beam Search 可能倾向于生成：
+
+```text
+This is a very important issue.
+```
+
+而不是更有创意、更跳脱的表达。
+
+这是因为 Beam Search 本质上不是在“探索多样性”，而是在“搜索高概率”。beam size 越大，它越有机会找到模型认为整体概率更高的句子，而这些句子经常更平均、更模板化。
+
+所以在聊天、创作、开放式生成场景里，更常见的是：
+
+```text
+temperature sampling
+top-k sampling
+top-p sampling
+```
+
+它们通过随机性和截断采样增加多样性。
+
+Beam Search 更常见于：
+
+- 机器翻译；
+- 语音识别；
+- 摘要生成；
+- 图像描述；
+- 代码或结构化文本生成；
+- 需要稳定、可复现、较少随机性的任务。
+
+简单说：**Beam Search 适合追求稳定正确，不适合追求开放创意。**
+
+## 7. 在大模型推理中，Beam Search 为什么更贵
+
+在推理系统里，如果：
+
+```text
+beam_size = B
+```
+
+可以粗略理解为：每个请求会被扩展成 `B` 条并行候选序列。
+
+例如 batch size 是 8，beam size 是 4，那么 decode 阶段可能近似变成：
+
+```text
+8 * 4 = 32 条序列
+```
+
+这会带来几类成本。
+
+### 7.1 KV cache 占用增加
+
+每个 beam 都有自己的生成历史。
+
+在 Transformer decode 阶段，生成历史通常对应 KV cache。beam 越多，需要维护的候选序列越多，KV cache 占用通常也会增加。
+
+这对长上下文、大 batch、多并发请求尤其敏感。
+
+### 7.2 Decode 计算量增加
+
+普通 sampling 通常每个请求只继续一条路径。
+
+Beam Search 会同时扩展多条路径，每一步都要计算多个 beam 的下一个 token 分布，并从候选里重新选择 top beams。
+
+所以它的 decode 成本通常接近随 `beam_size` 增长。
+
+### 7.3 调度和重排更复杂
+
+不同 beam 可能在不同时间生成 `<eos>`。
+
+推理系统需要处理：
+
+- beam pruning；
+- finished beam 和 active beam 的管理；
+- KV cache 的重排；
+- batch 内不同请求的 beam 对齐；
+- 最终序列选择和长度惩罚。
+
+这些都会让实现复杂度和调度成本上升。
+
+### 7.4 吞吐下降
+
+从系统角度看，一个 beam size 很大的请求，会占用更多 decode slot、显存和调度资源。
+
+所以在 vLLM、SGLang 这类大模型推理系统里，Beam Search 通常比普通 sampling 更贵。它不是“只多几个候选字符串”这么轻量，而是实实在在增加了推理时的序列数和状态管理成本。
+
+## 8. Beam Search 的一个简化伪代码
+
+可以把 Beam Search 写成下面这个流程：
+
+```text
+beams = [prompt]
+
+for step in max_new_tokens:
+    candidates = []
+
+    for beam in beams:
+        next_token_probs = model(beam)
+
+        for token in top_tokens(next_token_probs):
+            new_beam = beam + token
+            new_score = beam.score + log_prob(token)
+            candidates.append((new_beam, new_score))
+
+    beams = top_k(candidates, k=beam_size)
+
+    if all beams finished:
+        break
+
+return best beam
+```
+
+真实实现会更复杂，因为还要处理 `<eos>`、length penalty、重复惩罚、batching、KV cache、beam group、early stopping 等细节。但核心逻辑就是：扩展、打分、剪枝，再重复。
+
+## 9. 常见误区
+
+### 误区一：Beam Search 是随机采样
+
+不是。
+
+标准 Beam Search 是确定性的搜索算法。只要模型输出、输入、参数一致，结果通常是可复现的。
+
+### 误区二：beam size 越大，效果一定越好
+
+不一定。
+
+beam size 变大确实会扩大搜索范围，但也可能让输出更普通、更短或更模板化，还会显著增加推理成本。
+
+### 误区三：Beam Search 一定能找到全局最优
+
+不能。
+
+Beam Search 每一步都会剪枝，只保留前 `beam_size` 个候选。如果真正最优路径早期得分不高，被剪掉之后就再也回不来了。
+
+所以 Beam Search 只是近似搜索，不是全局最优搜索。
+
+### 误区四：Beam Search 适合所有 LLM 场景
+
+也不是。
+
+对于开放式聊天、创意写作、头脑风暴，sampling 往往更合适；对于翻译、识别、摘要、结构化输出，Beam Search 更常见。
+
+## 10. 总结一句话
+
+**Beam Search 是一种折中搜索策略：它不像贪心搜索那样只保留一个候选，也不像穷举搜索那样保留所有候选，而是在每一步只保留前 `beam_size` 个最有希望的序列，从而在生成质量和计算成本之间做平衡。**
+
+如果放到大模型推理系统里看，它还有另一个更工程化的含义：
+
+**beam size 越大，一个请求就越像被展开成多条并行 decode 路径，质量可能更稳，但 KV cache、计算量和调度复杂度也会一起上升。**
