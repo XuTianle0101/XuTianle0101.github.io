@@ -1,0 +1,318 @@
+---
+title:
+  zh: "什么是muP?"
+  en: "What Is muP?"
+description:
+  zh: "从最大更新参数化的直觉出发，梳理 muP 解决的问题、和 NTK/SP 的区别、Transformer 里的关键改动，以及它为什么能支持小模型调参迁移到大模型。"
+  en: "An intuitive guide to Maximal Update Parametrization, covering its motivation, relation to NTK and standard parametrization, Transformer-specific changes, and hyperparameter transfer."
+date: "2026-07-02"
+language: "bilingual"
+tags:
+  - Deep Learning
+  - LLM
+  - Training
+  - muP
+  - Scaling
+---
+
+在 AI 训练语境里，`muP` 或 `μP` 通常指 **Maximal Update Parametrization**，中文可以译为 **最大更新参数化**。
+
+如果只用一句话概括：
+
+**muP 是一套关于初始化尺度、前向缩放和学习率缩放的规则。它希望模型变宽以后，激活和输出仍然稳定，同时参数更新尽可能大到足以学习特征；这样，小模型上调好的很多超参数才更有机会迁移到大模型。**
+
+这句话里有三个关键词：
+
+- **稳定**：模型变宽后，前向激活、logits、loss 不应该因为尺度错配而爆炸或消失。
+- **更新**：训练时参数变化不能小到几乎不改变特征，否则模型会接近 lazy learning。
+- **迁移**：如果尺度关系设计正确，小模型上找到的学习率等超参数，可以更可靠地迁移到大模型。
+
+所以，muP 不是一个新的优化器，也不是一个新的 Transformer 结构。它更像是一套“缩放时不丢物理量纲”的训练参数化方法。
+
+## 1. muP 想解决什么问题
+
+训练大模型时，一个很现实的问题是：
+
+> 我在 100M 参数模型上调好的 learning rate、weight decay、Adam 超参，能不能直接用到 7B 或 70B 模型上？
+
+普通做法下，答案往往是：不一定。
+
+原因不是“大模型更玄学”，而是模型宽度变大以后，参数、激活、梯度、更新量之间的尺度关系会变。小模型上刚刚好的学习率，到大模型上可能太大，导致 loss spike 或训练发散；也可能太小，让模型看起来很稳，但其实特征几乎不动。
+
+muP 论文把这个问题转化成一个更具体的目标：能不能设计一种参数化方式，让不同宽度模型之间存在稳定的超参数迁移关系？如果可以，我们就能先在便宜的小模型上做 sweep，再把调出来的超参数零样本迁移到目标大模型。这个过程通常被称为 **muTransfer**。
+
+这就是 muP 最有工程价值的地方：它试图把昂贵的“大模型调参”，变成“小模型调参 + 正确的宽度缩放规则”。
+
+## 2. “Maximal Update”到底是什么意思
+
+`Maximal Update` 这个名字听起来有点抽象，但直觉并不复杂。
+
+训练神经网络时，我们既希望前向传播稳定，也希望训练真的能改变模型内部表征。也就是说，对于某一层的 pre-activation `h`，我们希望：
+
+```text
+h = O(1)
+Delta h = O(1)
+```
+
+第一行表示激活本身不要随着宽度增加而爆炸或消失。第二行表示一次训练更新带来的特征变化也要保持在合理量级。
+
+如果 `Delta h` 太大，模型会不稳定；如果 `Delta h` 太小，模型会变成“参数在动，但函数几乎没动”的状态，更接近 NTK/lazy regime。muP 的目标不是保守地把更新压得越小越好，而是在不让前向发散的前提下，让每层获得尽可能大的有效更新。
+
+这也是“最大更新参数化”这个名字的含义：**不是最大化学习率，而是让网络在稳定边界内保留最大的有意义特征更新。**
+
+## 3. 为什么普通参数化不够
+
+先看一个简化的 MLP：
+
+```text
+h_l = W_l x_{l-1}
+x_l = phi(h_l)
+```
+
+标准初始化通常会让权重方差随 fan-in 缩放，比如近似按 `1 / n` 控制。这样做的目的很清楚：当宽度 `n` 变大时，前向激活不要因为累加项变多而爆炸。
+
+但这只解决了初始化时的 forward scale 问题。
+
+训练时还有另一个问题：
+
+```text
+W_l <- W_l - eta * grad(W_l)
+```
+
+参数更新之后，真正影响下一层的是：
+
+```text
+Delta h_l = Delta W_l x_{l-1}
+```
+
+如果学习率、输出层缩放、attention scale、不同矩阵的 fan-in/fan-out 关系没有跟着宽度正确调整，那么随着模型变宽，`Delta h_l` 的量级可能发生变化：
+
+- 它可能越来越大，导致训练不稳定；
+- 它可能越来越小，导致特征几乎不学习；
+- 它也可能在不同层之间不一致，表现为小模型能训、大模型突然难训。
+
+muP 关心的正是这个训练过程中的更新尺度，而不只是初始化那一刻的激活尺度。
+
+## 4. muP、SP 和 NTK 的区别
+
+可以把三种常见参数化方式放在一起看：
+
+| 参数化方式 | 前向是否稳定 | 是否保留 feature learning | 超参数宽度迁移 | 直觉 |
+| --- | ---: | ---: | ---: | --- |
+| Standard Parametrization, SP | 初始化通常稳定 | 有 feature learning | 不稳定 | 小模型调参不一定适合大模型 |
+| NTK Parametrization | 稳定 | 特征基本不动 | 理论性质清晰 | 更接近固定核方法 |
+| muP | 稳定 | 保留 feature learning | 更稳定 | 既稳住尺度，又允许特征学习 |
+
+NTK 参数化的好处是数学上很干净，但无限宽极限下容易走向 lazy learning：模型训练时主要像是在调整最后函数值，内部特征变化很小。
+
+标准参数化在有限宽模型里当然可以学习特征，但当宽度变化时，最优超参数和训练动态不一定保持一致。也就是说，你在小模型上看到的“好学习率”，未必能说明大模型上什么学习率好。
+
+muP 想要的是第三条路：在宽度变大时仍然有一个稳定极限，同时这个极限不是 lazy 的，而是保留 feature learning 的。
+
+## 5. muP 具体改了什么
+
+工程上，muP 通常不是“改一行学习率”就结束了。它至少涉及四类东西。
+
+### 5.1 区分哪些维度会随宽度扩展
+
+muP 会区分参数 shape 里的不同维度：
+
+- 有些维度是 **infinite dimension**，也就是随模型宽度扩大的维度；
+- 有些维度是 **finite dimension**，通常不会跟着 width scaling 变化。
+
+以 Transformer 为例：
+
+- `d_model` 通常会随模型变宽；
+- `d_ffn` 通常会随模型变宽；
+- attention head 数或 head dim 可能会变化，具体取决于 scaling 方案；
+- vocab size 通常不是宽度扩展维；
+- layer 数更多属于 depth scaling，不是经典 muP 主要处理的 width transfer。
+
+这就是为什么很多 muP 实现会要求你定义 `base model` 和 `delta model`。base model 表示基准宽度，delta model 用来告诉工具哪些维度会随宽度变化。这样目标模型的每个参数才能知道自己应该按什么规则缩放。
+
+### 5.2 初始化不能只靠默认 Linear
+
+普通 `Linear` 层的默认初始化通常只关心“前向别炸”。muP 还要保证训练更新对后续激活的影响在宽度变化时保持稳定，所以不同参数的初始化尺度可能需要按照 fan-in、fan-out 以及是否属于 readout 层分别处理。
+
+这也是为什么工程实现里经常会看到专门的 muP 初始化函数，而不是完全依赖框架默认初始化。
+
+### 5.3 不同参数组需要不同学习率缩放
+
+muP 的一个常见误解是：把学习率除以宽度就是 muP。
+
+这不准确。
+
+muP 确实会改变不同参数的有效学习率，但缩放规则依赖参数所在位置和 shape 类型。比如 hidden weights、embedding、readout 可能不是同一种缩放。对于 Adam 这类自适应优化器，很多实现也会为不同参数组设置不同的 lr multiplier。
+
+一个粗略直觉是：宽度越大，某些矩阵乘法会累加更多 coordinate。如果仍然让每个参数保持相同更新尺度，更新对激活的影响可能会随宽度变强。muP 通过参数组级别的学习率缩放，把这种宽度效应抵消掉。
+
+### 5.4 输出层通常要特殊处理
+
+输出层，也就是 readout 层，在 muP 里通常非常关键。
+
+原因是输出层直接决定 logits 和 loss gradient 的尺度。如果 readout 仍然按普通 hidden layer 处理，随着 hidden width 增大，logits 或反向梯度的尺度可能不再和中间层匹配。
+
+所以在 Microsoft 的 `mup` 实现中，常见做法是把普通输出层替换成 `MuReadout`；如果 embedding 和输出层权重共享，则使用对应的 shared readout 处理方式。
+
+这一点很重要：**只换 optimizer、不处理 readout，往往不能算真正实现了 muP。**
+
+## 6. Transformer 里的关键点：attention scale
+
+在普通 Transformer 里，attention logits 通常写成：
+
+```text
+QK^T / sqrt(d_head)
+```
+
+而在 muP 语境里，常见建议会把 attention scaling 改成类似：
+
+```text
+QK^T / d_head
+```
+
+有些实现为了兼容常见的 `d_head = 64`，会写成等价变体，例如 `8 / d_head` 这样的系数。核心不是这个常数本身，而是 attention logits 的尺度要符合 muP 对宽度缩放的要求。
+
+为什么 attention scale 这么敏感？
+
+因为 `QK^T` 本质上也是一个随 hidden dimension 累加的量。如果 Q、K 的初始化和更新尺度跟 attention logits 的缩放不匹配，那么模型变宽后，attention 分布可能变得过尖、过平，或者训练几步后迅速偏离小模型上的行为。
+
+所以，在 Transformer 里落地 muP，至少要同时检查：
+
+- hidden projection 的初始化和学习率缩放；
+- MLP 中间层和输出层的缩放；
+- readout 层的特殊处理；
+- attention logits 的 scaling；
+- tied embedding/readout 的处理方式；
+- 不同宽度模型的 coordinate check 是否通过。
+
+漏掉其中任何一个环节，都可能让“我用了 muP”变成“我只用了一个叫 muP 的 optimizer”。
+
+## 7. muTransfer：小模型调参为什么可能迁移
+
+muP 本身是一套参数化规则，而它带来的训练范式叫 **muTransfer**。
+
+一个典型流程是：
+
+1. 定义一个很小的 base model。
+2. 定义一个只在宽度维度上不同的 delta model，用来标记哪些参数维度会扩展。
+3. 构造实际要训练的 target model。
+4. 对这些模型应用 muP shape 标记和初始化规则。
+5. 在小模型上搜索 learning rate、weight decay、scheduler、batch size 等超参数。
+6. 把小模型上得到的全局超参数迁移到目标大模型。
+
+这个思路对大模型训练很有吸引力。因为在 7B、70B 模型上做完整 learning rate sweep 的成本很高；如果可以在便宜的小模型上完成大部分调参，大模型训练的试错成本就会下降很多。
+
+当然，muTransfer 不是魔法。它更可靠地迁移的是和宽度缩放相关的训练超参数，不代表所有系统问题都会消失。数据质量、batch size 变化、并行策略、混合精度、loss spike 处理、checkpoint 恢复、硬件通信瓶颈，这些仍然需要单独处理。
+
+## 8. 一个直观例子
+
+假设你有两个 Transformer：
+
+```text
+small model: d_model = 512
+large model: d_model = 4096
+```
+
+在普通参数化下，你可能在小模型上找到：
+
+```text
+global lr = 3e-4
+```
+
+但把这个学习率直接搬到大模型时，结果不一定好。原因不是 4096 维模型天然“娇气”，而是 hidden projection、MLP、attention、readout 的更新对激活和 logits 的影响已经变了。
+
+muP 的做法不是简单说“大模型 lr 要小一点”，而是系统性地让不同参数组在宽度变化时保持正确尺度：
+
+- hidden weights 使用对应的有效学习率缩放；
+- readout 使用 muP 版本的输出层；
+- attention logits 使用 muP 对应的 scale；
+- 初始化按照 infinite dimension / finite dimension 处理；
+- 用 coordinate check 检查不同宽度下激活 coordinate 是否稳定。
+
+这样，小模型上调出来的 `global lr` 才更像一个可以迁移的超参数，而不是只对 512 宽度偶然有效的数字。
+
+## 9. 怎么判断 muP 实现大概率是对的
+
+实践中，一个很重要的检查叫 **coordinate check**。
+
+做法可以很朴素：
+
+- 选几组不同宽度的模型，比如 `d_model = 256 / 512 / 1024 / 2048`；
+- 用相同的全局超参数跑初始化和前几步训练；
+- 记录每层 activation coordinate 的平均大小；
+- 比较这些曲线是否随宽度基本保持稳定。
+
+如果 muP 实现正确，不同宽度下的 activation coordinate 不应该系统性爆炸或消失。如果宽度越大曲线越离谱，往往说明某些 shape 标记、初始化、readout、attention scale 或 optimizer param group 没处理对。
+
+coordinate check 的价值在于，它不是只看 loss。loss 可能要训练一段时间才暴露问题，但坐标尺度错误经常在初始化或训练前几步就能看出来。
+
+## 10. muP 和常见训练技术的关系
+
+muP 经常和一些训练稳定性技术一起出现，但它们解决的问题不同。
+
+| 技术 | 主要解决什么 |
+| --- | --- |
+| Pre-LN / Post-LN | 深层 Transformer 的梯度流和训练稳定性 |
+| LayerNorm / RMSNorm | 激活归一化和数值稳定 |
+| DeepNorm | 很深 Transformer 的 residual scaling |
+| AdamW | 优化算法和权重衰减方式 |
+| ZeRO / FSDP / TP / PP | 显存与并行训练 |
+| FlashAttention | attention 计算效率和显存访问 |
+| muP | 宽度变化时的参数、激活和更新尺度一致性 |
+| muTransfer | 小模型调参迁移到大模型 |
+
+所以，muP 不是 LayerNorm 的替代品，也不是 AdamW 的替代品，更不是推理加速技术。它更偏训练理论和训练工程，关注的是模型 scaling 时的尺度一致性。
+
+如果你在做 AI infra，muP 通常不会直接解决这些问题：
+
+- KV cache；
+- prefill/decode throughput；
+- tensor parallel 通信；
+- NCCL/CNCL 带宽；
+- offload；
+- attention kernel 性能；
+- serving latency。
+
+但如果你在做预训练、scale-up 实验或 proxy model 调参，它就很相关。
+
+## 11. 几个常见误区
+
+### 误区一：muP 就是把学习率除以宽度
+
+不是。
+
+学习率缩放只是 muP 的一部分，而且不同参数组的缩放方式不同。完整 muP 还涉及初始化、readout、attention scale、shape 标记和 coordinate check。
+
+### 误区二：用了 MuAdam 就等于用了 muP
+
+也不是。
+
+如果只把 Adam 换成 MuAdam，但输出层还是普通 Linear，attention scale 仍然是普通 `1 / sqrt(d_head)`，base/delta shape 标记也不对，那么整体训练动态未必符合 muP。
+
+### 误区三：muP 能保证大模型一定训得更好
+
+不能。
+
+muP 主要解决的是 width scaling 下的更新尺度和超参数迁移问题。它不能替代数据清洗、tokenizer 选择、batch size 设计、并行稳定性、数值精度策略和异常 loss 处理。
+
+### 误区四：muP 是推理优化
+
+不是。
+
+muP 是训练参数化和调参迁移方法，不是 vLLM、PagedAttention、FlashAttention 这类推理或算子优化。
+
+## 12. 最后总结
+
+muP 的核心问题意识是：**当模型变宽时，不能只让初始化时的激活稳定，还要让训练更新造成的特征变化也稳定。**
+
+它通过一套参数化规则，让前向激活、输出尺度、参数更新和学习率缩放在不同宽度之间保持一致。这样，小模型上调出来的很多训练超参数，才更可能迁移到大模型。
+
+如果用一句更工程化的话收束：
+
+**muP 是为了让“先训小模型找超参，再放大到大模型”这件事不再完全靠玄学。**
+
+## 参考资料
+
+- [Tensor Programs V: Tuning Large Neural Networks via Zero-Shot Hyperparameter Transfer](https://arxiv.org/abs/2203.03466)
+- [microsoft/mup: maximal update parametrization](https://github.com/microsoft/mup)
+- [Tensor Programs IV: Feature Learning in Infinite-Width Neural Networks](https://proceedings.mlr.press/v139/yang21c.html)
