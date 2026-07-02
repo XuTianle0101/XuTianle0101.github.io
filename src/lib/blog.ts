@@ -45,13 +45,27 @@ export type BlogFrontmatter = {
   description: LocalizedString;
   date: string;
   language: BlogLanguage;
-  series: BlogSeries;
   tags: string[];
 };
 
 export type BlogPost = BlogFrontmatter & {
   slug: string;
+  series: BlogSeries;
 };
+
+function inferBlogSeries(title: LocalizedString): BlogSeries {
+  const zhTitle = title.zh.trim();
+
+  if (zhTitle.startsWith('[Infra')) {
+    return 'ai-infra';
+  }
+
+  if (zhTitle.startsWith('什么是')) {
+    return 'what-is';
+  }
+
+  return 'misc';
+}
 
 export function getBlogSlugs() {
   if (!fs.existsSync(blogDirectory)) {
@@ -79,7 +93,7 @@ export function getPostBySlug(slug: string): BlogPost {
     description: data.description,
     date: data.date,
     language: data.language,
-    series: data.series ?? 'misc',
+    series: inferBlogSeries(data.title),
     tags: data.tags ?? [],
   };
 }
