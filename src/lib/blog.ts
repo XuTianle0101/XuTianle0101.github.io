@@ -6,12 +6,46 @@ import type { LocalizedString, Locale } from '@/i18n';
 const blogDirectory = path.join(process.cwd(), 'content', 'blog');
 
 export type BlogLanguage = Locale | 'bilingual';
+export type BlogSeries = 'ai-infra' | 'what-is' | 'misc';
+
+export const blogSeriesOrder: BlogSeries[] = ['ai-infra', 'what-is', 'misc'];
+
+export const blogSeriesMeta: Record<BlogSeries, LocalizedString> = {
+  'ai-infra': {
+    zh: 'AI Infra',
+    en: 'AI Infra',
+  },
+  'what-is': {
+    zh: '什么是系列',
+    en: 'What Is Series',
+  },
+  misc: {
+    zh: '杂谈',
+    en: 'Notes',
+  },
+};
+
+export const blogSeriesDescriptions: Record<BlogSeries, LocalizedString> = {
+  'ai-infra': {
+    zh: '面向训练、推理、通信和系统性能的基础设施笔记。',
+    en: 'Infrastructure notes on training, inference, communication, and systems performance.',
+  },
+  'what-is': {
+    zh: '用工程视角解释一个重要概念：它是什么、解决什么问题、怎么落地。',
+    en: 'Engineering-oriented explainers for important concepts: what they are, why they matter, and how to apply them.',
+  },
+  misc: {
+    zh: '项目复盘、工具链经验，以及更自由的技术思考。',
+    en: 'Project reflections, tooling notes, and more free-form technical thoughts.',
+  },
+};
 
 export type BlogFrontmatter = {
   title: LocalizedString;
   description: LocalizedString;
   date: string;
   language: BlogLanguage;
+  series: BlogSeries;
   tags: string[];
 };
 
@@ -45,6 +79,7 @@ export function getPostBySlug(slug: string): BlogPost {
     description: data.description,
     date: data.date,
     language: data.language,
+    series: data.series ?? 'misc',
     tags: data.tags ?? [],
   };
 }

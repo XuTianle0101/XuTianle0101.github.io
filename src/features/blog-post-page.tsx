@@ -2,7 +2,7 @@ import matter from 'gray-matter';
 import { MDXRemote } from 'next-mdx-remote/rsc';
 import { type Locale, text } from '@/i18n';
 import { formatDate } from '@/lib/format';
-import { getPostBySlug, getPostSource } from '@/lib/blog';
+import { blogSeriesMeta, getPostBySlug, getPostSource } from '@/lib/blog';
 
 function estimateReadingMinutes(content: string, locale: Locale) {
   const plainText = content
@@ -34,6 +34,8 @@ export function BlogPostPage({ locale, slug }: { locale: Locale; slug: string })
         <div className="mx-auto max-w-3xl">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs font-semibold uppercase tracking-[0.18em] text-teal dark:text-sky-300">
             <span>{formatDate(post.date, locale)}</span>
+            <span className="h-1 w-1 rounded-full bg-teal/50 dark:bg-sky-300/60" />
+            <span>{text(blogSeriesMeta[post.series], locale)}</span>
             <span className="h-1 w-1 rounded-full bg-teal/50 dark:bg-sky-300/60" />
             <span>{languageLabel}</span>
             <span className="h-1 w-1 rounded-full bg-teal/50 dark:bg-sky-300/60" />
